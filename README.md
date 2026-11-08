@@ -10,10 +10,11 @@ Turn a walk-through **video** or a **folder of photos** into
 Everything is driven by one CLI, `gsu`, working inside a *work directory*:
 
 ```
-video / photos ──ingest──▶ frames ──sfm──▶ COLMAP model ──train (GPU)──▶ splat ──export──▶ .splat ──web──▶ site
-                                              │                                   ▲
-                                              └──align──▶ scene.json ──geometry──▶ diagram.json / SVG / GLB
-                                                            (uses the splat's gaussians when present, else SfM points)
+video / photos ──ingest──▶ frames ──sfm──▶ COLMAP model(s) ──train (GPU)──▶ splat ──export──▶ .splat ──web──▶ site
+                                              │
+                                              ├──align──▶ scene.json            (gravity, floor, metric scale)
+                                              └──rectify──▶ work/rectified      (drift-corrected, sub-models stitched)
+                                                               └──geometry──▶ diagram.json / plan SVGs / iso SVG / GLB
 ```
 
 Only `gsu train` needs a GPU. Frame extraction, structure-from-motion (COLMAP /
@@ -43,12 +44,24 @@ gsu sfm --work work                      # add --focal 400 if you know the focal
 # 3. gravity, floor, metric scale -> scene.json
 gsu align --work work --camera-height 1.5
 
-# 4. corridors / stairs / levels -> diagrams
+# 4. one metric walk out of the sub-models: scale-drift correction + stitching
+gsu rectify --work work
+
+# 5. corridors / stairs / levels -> diagrams
 gsu geometry --work work --title "Building A" --labels examples/labels.example.json
 
 # or all of the above in one go
 gsu run --work work --video video/input.mp4 --frames 1400
 gsu status --work work                   # what each stage produced
+```
+
+If the reconstruction breaks into pieces at a blurry turn (`gsu sfm` says so), add every
+frame around the break and re-run SfM reusing the existing matches:
+
+```bash
+gsu ingest --work work --video video/input.mp4 --add --start 90.5 --end 96.5 --every 1 --drop-blur 0
+gsu sfm --work work --keep-database
+gsu rectify --work work && gsu geometry --work work
 ```
 
 Outputs land in `work/geometry/`:
@@ -57,7 +70,7 @@ Outputs land in `work/geometry/`:
 |---|---|
 | `diagram.json` | levels, corridor runs (straight pieces with left/right widths, openings), walls, stairs, path, labels. Metres, +Z up. |
 | `plan_L0.svg`, `plan_L1.svg`, ... `plan_all.svg` | top-down plans, one per level |
-| `iso.svg`, `iso_exploded.svg` | axonometric "sign" view: floor ribbons, cut-away walls, stairs with balustrades, path, labels |
+| `iso.svg`, `iso_exploded.svg` | isometric "sign" view: floor slabs, open-well stairs with their void and gallery, halls, path, labels (walls only with `--walls`) |
 | `diagram.glb`, `diagram.obj` + `.mtl` | the same as meshes (Y up) for Blender / three.js / Illustrator 3D |
 | `path.json` | the smoothed walk path (also used by the website's `route` transition) |
 | `occupancy_L*.png` | debug: wall-band points, the path and the detected wall hits per level |
@@ -153,6 +166,16 @@ corridor you filmed instead of cutting through walls. The viewer needs a WebGPU 
 * **Path**: mis-registered cameras are dropped, the track is smoothed and resampled
   every 0.25 m. Runs with |dz/ds| above `--stair-slope` (0.22) and more than 0.6 m
   of rise are **stairs**; the flat runs between them are grouped into **levels**.
+* **Rectify** (`gsu rectify`): structure-from-motion on forward motion through a
+  textureless corridor is weak in scale: the reconstruction can shrink 20-50x
+  along the corridor (we measured exactly that on the sample video). The camera's
+  height above the floor is constant, so the floor band tracked through time gives
+  the local scale, the path and the points are "unrolled" with it, height is only
+  integrated where the raw track is clearly sloped (stairs), and sub-models that
+  share no images are registered where their camera tracks interleave in time
+  (2D rigid + height offset, snapped to the building grid). Writes
+  `work/rectified/`, which `gsu geometry` uses automatically; the raw COLMAP model
+  stays untouched for splat training.
 * **Corridors**: per level, points in a wall band (0.35–2.1 m above the floor) go into
   a 0.15 m occupancy grid that counts *how many height bins* a cell covers, so
   handrails, furniture and stray points do not stop a ray while walls do. Left/right
@@ -160,16 +183,32 @@ corridor you filmed instead of cutting through walls. The viewer needs a WebGPU 
   is hit become **openings** (doors, side corridors). The path is snapped to the two
   dominant directions (`--no-manhattan` to keep raw angles) and each straight piece
   gets one width per side.
-* **Diagram**: floor ribbons per run, walls extruded to `--wall-height` (3D files) and
-  cut away to `--cutaway` (1.2 m) in the axonometric SVG, stairs as sloped ribbons
-  with treads and balustrades, the walk path, and labels from `--labels`, from
-  `poses.json` (your website spots double as sign destinations) plus Start/End and
-  the stairs.
+* **Stairs and halls**: a flight whose walked path encloses an area is an
+  **open-well stair** (flights wrapping around a central opening): it is drawn with
+  the flights where you walked, the void as a thin wireframe box between the two
+  floors and a gallery ring around it on each level (`--stairs-style atrium|path|simple`
+  overrides the detection). Landings are merged into their flight. A wide, wandering
+  stretch (an entrance hall, the room at the end of the walk) is drawn as a
+  rectangle instead of a corridor ribbon.
+* **Diagram**: floor slabs per run, stairs as sloped slabs with treads, the walk path
+  (not on the flights), labels from `--labels`, from `poses.json` (your website spots
+  double as sign destinations) plus Start/End and the stairs; walls are computed but
+  only drawn with `--walls` (then extruded to `--wall-height` in the 3D files and cut
+  away to `--cutaway` in the isometric).
 
 Sub-models: if the walk breaks (blur, a fast turn) COLMAP returns several models.
 `gsu sfm` keeps the largest as `colmap/sparse/0` and the rest in
-`colmap/sparse/models/`; `gsu use-model --model colmap/sparse/models/2` switches.
-The GLOMAP mapper (default for video) is much better at keeping one model.
+`colmap/sparse/models/`; `gsu rectify` stitches them for the diagram, and
+`gsu use-model --model colmap/sparse/models/2` switches the workspace model (for
+training) by hand. The GLOMAP mapper (default for video) is fast and keeps weak
+chains together, but drifts in scale on corridors; that is what `rectify` fixes.
+
+## Example: the sample walk-through
+
+`examples/walkthrough/` holds the diagrams produced from `video/input.mp4` (848x480
+handheld phone video, 145 s): entrance hall, open stair up, a 23 m corridor, open
+stair down, end hall. Scale comes from the 1.5 m camera-height assumption; corridor
+lengths follow the drift-corrected walk.
 
 ## Tips for filming
 

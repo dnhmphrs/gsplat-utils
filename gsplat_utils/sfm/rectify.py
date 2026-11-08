@@ -119,8 +119,9 @@ def run_rectify(ws: Workspace, model_dirs: list[os.PathLike | str] | None = None
                                      "n_pairs": reg["n_pairs"], "n_inliers": reg["n_inliers"], "span_m": reg["span_m"],
                                      "rms_m": reg["rms_m"], "method": "time-interleaved tracks"
                                      + (" (yaw snapped to the building grid)" if theta != reg["theta"] else "")}
-            log.info("stitched %s: yaw %.1f deg, dz %.2f m, %d/%d pairs, rms %.2f m over %.1f m", parts[i]["model"],
-                     np.degrees(reg["theta"]), reg["dz"], reg["n_inliers"], reg["n_pairs"], reg["rms_m"], reg["span_m"])
+            log.info("stitched %s: yaw %.1f deg (measured %.1f), dz %.2f m, %d/%d pairs, rms %.2f m over %.1f m",
+                     parts[i]["model"], np.degrees(theta), np.degrees(reg["theta"]), reg["dz"], reg["n_inliers"],
+                     reg["n_pairs"], reg["rms_m"], reg["span_m"])
         else:
             pa, pb = merged.positions, B.positions
             ta = pa[-1] - pa[max(0, len(pa) - 10)]; tb = pb[min(10, len(pb) - 1)] - pb[0]

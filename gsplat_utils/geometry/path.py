@@ -115,7 +115,7 @@ def segment_levels(
     really starts."""
     n = len(pts)
     if n < 3:
-        lv = Level(0, float(pts[:, 2].mean() - camera_height), float(pts[:, 2].mean()), n)
+        lv = Level(0, float(pts[:, 2].mean() - camera_height), float(pts[:, 2].mean()), n, name="Level 0")
         return [PathSegment("flat", 0, n, level=0)], [lv]
     z = pts[:, 2]
     win = max(3, int(round(slope_window_m / step)) | 1)
