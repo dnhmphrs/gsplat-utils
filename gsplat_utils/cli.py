@@ -10,6 +10,7 @@
     gsu poses    --work W ...                          named camera poses for the website
     gsu web      --work W                              static WebGPU site
     gsu run      --work W (--video V | --images DIR)   ingest -> sfm -> align -> geometry
+    gsu status   --work W                              what exists, key numbers
 """
 from __future__ import annotations
 
@@ -98,6 +99,63 @@ def cmd_sfm(a: argparse.Namespace) -> None:
         mapper=a.mapper, preset=a.preset, focal_px=a.focal, intrinsics_prior=a.intrinsics_prior,
         verbose=a.verbose,
     )
+
+
+def cmd_status(a: argparse.Namespace) -> None:
+    """Print what exists in the work directory and the key numbers of each stage."""
+    import json
+
+    from .common import read_json
+
+    ws = Workspace(a.work)
+    print(f"work: {ws.root}")
+    if ws.frames_meta.exists():
+        m = read_json(ws.frames_meta)
+        src = m.get("source", {})
+        print(f"frames: {len(m.get('frames', []))} from {src.get('type')} {src.get('path', '')}")
+    else:
+        print("frames: none (gsu ingest)")
+    summ = ws.colmap / "sfm_summary.json"
+    if summ.exists():
+        d = read_json(summ)
+        best = next((x for x in d["models"] if x["model"] == d["selected_model"]), None)
+        print(f"sfm: {len(d['models'])} model(s), selected #{d['selected_model']} with "
+              f"{best['images'] if best else '?'}/{d['n_input_images']} images, "
+              f"{best['points'] if best else '?'} points ({d.get('mapper')}, preset {d.get('preset')})")
+    elif ws.model.exists():
+        print(f"sfm: model at {ws.model}")
+    else:
+        print("sfm: none (gsu sfm)")
+    if ws.scene_json.exists():
+        d = read_json(ws.scene_json)
+        print(f"align: scale {d['scale']:.4f} m/unit, camera height {d['camera_height_m']} m, "
+              f"ceiling {d.get('ceiling_height_m') and round(d['ceiling_height_m'], 2)} m, method: {d.get('method')}")
+    else:
+        print("align: none (gsu align)")
+    if ws.splat_ply.exists():
+        side = ws.splat / "model.ply.json"
+        n = read_json(side).get("n") if side.exists() else "?"
+        print(f"splat: {ws.splat_ply} ({n} gaussians)" + (f", web export {ws.splat_web}" if ws.splat_web.exists() else ""))
+    else:
+        print("splat: none (gsu train on a GPU machine)")
+    dj = ws.geometry / "diagram.json"
+    if dj.exists():
+        d = read_json(dj)
+        st = d["stats"]
+        print(f"geometry: {len(d['levels'])} level(s), {st['n_runs']} runs, path {st['path_length_m']:.1f} m, "
+              f"{st['n_walls']} walls, {st['n_openings']} openings -> {ws.geometry}")
+        for lv in d["levels"]:
+            print(f"   {lv['name']}: floor z {lv['floor_z']:.2f} m")
+        for r in d["runs"]:
+            pieces = ", ".join(f"{p['length']:.1f}m" for p in r["pieces"])
+            tag = f"level {r['level']}" if r["kind"] == "flat" else f"L{r['level_from']}->L{r['level_to']}"
+            print(f"   run {r['id']} {r['kind']} ({tag}): {pieces}")
+    else:
+        print("geometry: none (gsu geometry)")
+    if ws.poses_json.exists():
+        print(f"poses: {[p['id'] for p in read_json(ws.poses_json).get('poses', [])]}")
+    if ws.web.exists():
+        print(f"web: {ws.web}")
 
 
 def cmd_use_model(a: argparse.Namespace) -> None:
@@ -261,6 +319,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("ingest", help="video/photos -> frames"); _add_work(p); _add_ingest_args(p); p.set_defaults(fn=cmd_ingest)
     p = sub.add_parser("sfm", help="COLMAP structure from motion"); _add_work(p); _add_sfm_args(p); p.set_defaults(fn=cmd_sfm)
+    p = sub.add_parser("status", help="summarise what each stage produced"); _add_work(p); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("use-model", help="promote a COLMAP sub-model (e.g. colmap/sparse/models/3) to the workspace model")
     _add_work(p); p.add_argument("--model", required=True, type=Path); p.add_argument("--no-undistort", action="store_true")
     p.set_defaults(fn=cmd_use_model)
