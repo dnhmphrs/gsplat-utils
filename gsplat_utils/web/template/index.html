@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>gsplat</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="ui">
+  <header>
+    <h1 id="title">gsplat</h1>
+    <div class="toolbar">
+      <button id="btn-share" title="copy current viewpoint as JSON (P)">pose</button>
+      <button id="btn-options" title="transition options (O)">options</button>
+      <button id="btn-help" title="help">?</button>
+    </div>
+  </header>
+
+  <nav id="nav" aria-label="viewpoints"></nav>
+  <div id="status" aria-live="polite"></div>
+
+  <aside id="panel-options" class="panel" hidden>
+    <div class="panel-head"><strong>Transition</strong><button data-close="options" aria-label="close">×</button></div>
+    <form id="options-form" onsubmit="return false"></form>
+  </aside>
+
+  <aside id="panel-share" class="panel" hidden>
+    <div class="panel-head"><strong>Current viewpoint</strong><button data-close="share" aria-label="close">×</button></div>
+    <p class="hint">Paste into <code>poses.json</code> (COLMAP frame) or use <code>gsu poses --set &lt;id&gt; &lt;image|frame|time&gt;</code>.</p>
+    <textarea id="share-json" rows="12" spellcheck="false"></textarea>
+    <button id="share-copy" type="button">copy</button>
+  </aside>
+
+  <aside id="panel-help" class="panel" hidden>
+    <div class="panel-head"><strong>Controls</strong><button data-close="help" aria-label="close">×</button></div>
+    <ul class="hint">
+      <li>drag: orbit · right-drag / shift-drag: pan · wheel / pinch: zoom · WASD QE: fly</li>
+      <li>1–9: viewpoints · ← →: previous / next · R: reset to viewpoint</li>
+      <li>P: copy pose · O: transition options · H: hide interface</li>
+      <li>links: add <code>#id</code> to the URL to open a viewpoint directly</li>
+    </ul>
+  </aside>
+</div>
+
+<div id="loading" hidden>
+  <div class="bar"><div id="loading-bar"></div></div>
+  <div id="loading-text">loading</div>
+</div>
+<div id="message" class="message" hidden></div>
+
+<script type="module" src="viewer.js"></script>
+</body>
+</html>

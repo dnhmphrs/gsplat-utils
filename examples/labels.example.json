@@ -1,0 +1,7 @@
+[
+  {"text": "Entrance",    "time_s": 2.0},
+  {"text": "Reception",   "time_s": 12.0},
+  {"text": "Studio",      "image": "frame_001900.jpg"},
+  {"text": "Shop",        "frame_index": 3300},
+  {"text": "Fire exit",   "xyz": [12.5, -3.0, 0.0], "frame": "aligned"}
+]

@@ -1,0 +1,10 @@
+# work directories produced by `gsu`
+work/
+work-*/
+*.egg-info/
+__pycache__/
+*.pyc
+.pytest_cache/
+build/
+dist/
+.DS_Store
