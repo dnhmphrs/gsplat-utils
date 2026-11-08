@@ -43,8 +43,9 @@ class GeometryConfig:
     manhattan: bool = True
     labels: os.PathLike | str | None = None
     explode: float = 0.0              # extra vertical spacing per level in iso.svg
-    iso_azimuth: float = -55.0
-    iso_elevation: float = 35.0
+    iso_azimuth: float = -45.0
+    iso_elevation: float = 35.264      # true isometric
+    show_path: bool = True
     band_lo: float = 0.35             # wall band above the floor (m)
     band_hi: float = 2.1
     min_run_m: float = 1.5            # shortest straight piece / stairs run
@@ -56,6 +57,8 @@ class GeometryConfig:
     title: str | None = None
     stairs_labels: bool = True
     stairs_wall_height: float = 0.9     # balustrade height drawn beside flights
+    stairs_style: str = "auto"          # "path" follows the flights, "simple" one straight sloped ribbon,
+                                        # "auto" = simple when the flights double back (switchback stairwell)
 
 
 def _grid_for(points: np.ndarray, z_lo: float, z_hi: float, centre_xy: np.ndarray, cell: float,
@@ -209,6 +212,8 @@ def run_geometry(ws: Workspace, cfg: GeometryConfig) -> dict:
             segs = polyline_segments(res, sg.i0, sg.i1, tol_m=0.4)
         if not segs:
             continue
+        if sg.kind == "stairs" and cfg.stairs_style != "path":
+            segs = _simplify_stairs(segs, res, sg, cfg.stairs_style)
         pieces = []
         for s in segs:
             s.kind = sg.kind
@@ -264,11 +269,11 @@ def run_geometry(ws: Workspace, cfg: GeometryConfig) -> dict:
     write_plan_svg(ws.geometry / "plan_all.svg", diagram, None, bounds, title=cfg.title or "All levels")
     view = AxoView(cfg.iso_azimuth, cfg.iso_elevation, cfg.explode)
     write_axo_svg(ws.geometry / "iso.svg", diagram, view, cutaway_height=cfg.cutaway_height, title=cfg.title,
-                  stairs_wall_height=cfg.stairs_wall_height)
+                  stairs_wall_height=cfg.stairs_wall_height, show_path=cfg.show_path)
     if len(levels) > 1 and cfg.explode == 0:
         view2 = AxoView(cfg.iso_azimuth, cfg.iso_elevation, explode_m=2.5)
         write_axo_svg(ws.geometry / "iso_exploded.svg", diagram, view2, cutaway_height=cfg.cutaway_height,
-                      title=cfg.title, stairs_wall_height=cfg.stairs_wall_height)
+                      title=cfg.title, stairs_wall_height=cfg.stairs_wall_height, show_path=cfg.show_path)
 
     # ---- meshes -------------------------------------------------------------
     meshes = build_meshes(runs, res, path_level, cfg, camera_height)
@@ -284,6 +289,21 @@ def run_geometry(ws: Workspace, cfg: GeometryConfig) -> dict:
                            widths, idx, [r for r in runs if r.kind == "flat" and r.level == lv.id])
     log.info("geometry written to %s (%d runs, %d levels)", ws.geometry, len(runs), len(levels))
     return diagram
+
+
+def _simplify_stairs(segs, res: np.ndarray, sg: PathSegment, style: str):
+    """One straight sloped piece from the bottom to the top of a flight when the
+    flights double back on themselves (or always, for style == 'simple')."""
+    from .path import StraightSegment
+
+    a, b = res[sg.i0], res[sg.i1 - 1]
+    direct = float(np.linalg.norm(b[:2] - a[:2]))
+    along = float((sg.i1 - sg.i0) * np.linalg.norm(np.diff(res[sg.i0:sg.i1, :2], axis=0), axis=1).mean()) if sg.i1 - sg.i0 > 1 else direct
+    if style == "simple" or direct < 0.6 * along:
+        if direct < 0.5:   # pure switchback with no net travel: keep the flights
+            return segs
+        return [StraightSegment(a.copy(), b.copy(), sg.i0, sg.i1, "")]
+    return segs
 
 
 def _run_json(r: Run) -> dict:

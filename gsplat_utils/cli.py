@@ -186,6 +186,10 @@ def _add_geometry_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--no-manhattan", dest="manhattan", action="store_false")
     p.add_argument("--labels", type=Path, default=None,
                    help="JSON of labels to draw: [{\"text\":\"Studio\",\"image\":\"frame_000123.jpg\"} | {\"text\":..,\"xyz\":[..]}]")
+    p.add_argument("--no-path", dest="show_path", action="store_false", help="hide the walk path in the diagrams")
+    p.add_argument("--iso-azimuth", type=float, default=-45.0, help="isometric view direction (deg)")
+    p.add_argument("--stairs-style", choices=["auto", "path", "simple"], default="auto",
+                   help="draw stairs along the real flights or as one straight sloped ribbon")
     p.add_argument("--wall-bins", type=int, default=2,
                    help="height bins (of 4) a grid cell must cover to count as wall (1 = any point)")
     p.add_argument("--explode", type=float, default=0.0,
@@ -200,7 +204,8 @@ def cmd_geometry(a: argparse.Namespace) -> None:
         source=a.source, cell=a.cell, max_half_width=a.max_width, wall_height=a.wall_height,
         cutaway_height=a.cutaway, path_step=a.path_sample, stair_slope=a.stair_slope,
         manhattan=a.manhattan, labels=a.labels, model_dir=getattr(a, "model", None),
-        explode=a.explode, title=a.title, min_wall_bins=a.wall_bins,
+        explode=a.explode, title=a.title, min_wall_bins=a.wall_bins, stairs_style=a.stairs_style,
+        show_path=a.show_path, iso_azimuth=a.iso_azimuth,
     )
     run_geometry(Workspace(a.work), cfg)
 

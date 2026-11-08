@@ -95,14 +95,18 @@ def segment_levels(
     camera_height: float,
     stair_slope: float = 0.22,
     min_run_m: float = 1.5,
-    level_merge_m: float = 1.0,
+    level_merge_m: float = 1.5,
     slope_window_m: float = 1.5,
+    max_landing_m: float = 3.5,
 ) -> tuple[list[PathSegment], list[Level]]:
     """Split a resampled path into flat runs and stairs; group flat runs into levels.
 
     Flat runs that are not separated by stairs share a level even if the model
     drifts a little in z; levels whose camera heights differ by less than
-    `level_merge_m` are merged (same physical floor visited twice)."""
+    `level_merge_m` are merged (same physical floor visited twice: floors are
+    >= 2.5 m apart, drift over a walk is usually less). A short flat run
+    (<= max_landing_m) between two flights climbing in the same direction is a
+    landing and becomes part of one stairs run."""
     n = len(pts)
     if n < 3:
         lv = Level(0, float(pts[:, 2].mean() - camera_height), float(pts[:, 2].mean()), n)
@@ -142,6 +146,19 @@ def segment_levels(
         else:
             final.append((kind, a, b))
     runs = final
+    # landings: stairs, short flat, stairs (same direction) -> one stairs run
+    max_landing = int(round(max_landing_m / step))
+    merged = True
+    while merged and len(runs) >= 3:
+        merged = False
+        for j in range(1, len(runs) - 1):
+            k0, a0, b0 = runs[j - 1]; k1, a1, b1 = runs[j]; k2, a2, b2 = runs[j + 1]
+            if k0 and k2 and not k1 and (b1 - a1) <= max_landing:
+                d0 = np.sign(zs[b0 - 1] - zs[a0]); d2 = np.sign(zs[b2 - 1] - zs[a2])
+                if d0 == d2:
+                    runs[j - 1:j + 2] = [(True, a0, b2)]
+                    merged = True
+                    break
 
     segments: list[PathSegment] = []
     levels: list[Level] = []

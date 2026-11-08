@@ -147,18 +147,29 @@ def _tread_lines(r: dict, P, px_per_m: float, every_m: float = 0.3) -> list[str]
 
 
 # ---------------------------------------------------------------------------
-# axonometric view
+# axonometric view (clean architectural isometric)
 # ---------------------------------------------------------------------------
+ISO_ELEVATION = math.degrees(math.atan(1 / math.sqrt(2)))   # 35.264..: true isometric
+
+AXO_STYLE = {
+    "line": "#1f1f1f", "line_w": 1.0,
+    "floor_top": "#f3f1ec", "floor_side_a": "#d7d3ca", "floor_side_b": "#c6c1b7",
+    "wall_a": "#e4e1da", "wall_b": "#cdc8be", "wall_top": "#f7f6f2",
+    "stairs_top": "#ebe7de", "tread": "#8f8a80", "rail": "#dcd8cf",
+    "path": "#d9482b", "label": "#111111", "muted": "#6f6f6f", "leader": "#1f1f1f",
+}
+
+
 @dataclass
 class AxoView:
-    azimuth_deg: float = -55.0
-    elevation_deg: float = 35.0
+    azimuth_deg: float = -45.0
+    elevation_deg: float = ISO_ELEVATION
     explode_m: float = 0.0          # extra vertical spacing per level
     px_per_m: float = 36.0
 
     def axes(self):
         az = math.radians(self.azimuth_deg); el = math.radians(self.elevation_deg)
-        u = np.array([-math.sin(az), math.cos(az), 0.0])                             # screen right
+        u = np.array([-math.sin(az), math.cos(az), 0.0])                                      # screen right
         v = np.array([-math.sin(el) * math.cos(az), -math.sin(el) * math.sin(az), math.cos(el)])  # screen up
         w = np.array([math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el)])    # toward viewer
         return u, v, w
@@ -170,137 +181,211 @@ class AxoView:
         return np.c_[p @ u, -(p @ v)], p @ w
 
 
+class _Faces:
+    """Collects svg fragments with a depth key per layer; layers are emitted in
+    order, each sorted far-to-near (painter's algorithm)."""
+
+    def __init__(self):
+        self.layers: dict[str, list[tuple[float, str]]] = {}
+
+    def add(self, layer: str, depth: float, svg: str) -> None:
+        self.layers.setdefault(layer, []).append((depth, svg))
+
+    def emit(self, order: list[str]) -> list[str]:
+        out = []
+        for name in order:
+            items = self.layers.get(name)
+            if not items:
+                continue
+            items.sort(key=lambda t: t[0])
+            out.append(f'<g id="{name}">')
+            out += [svg for _, svg in items]
+            out.append("</g>")
+        return out
+
+
+def _quad_depth(d: np.ndarray) -> float:
+    return float(d.mean())
+
+
+def _side_tone(normal_xy: np.ndarray, view: AxoView, a: str, b: str) -> str:
+    """Two-tone shading by which way a vertical face points relative to the viewer."""
+    u, _, w = view.axes()
+    n = np.array([normal_xy[0], normal_xy[1], 0.0])
+    return a if (n @ u) >= 0 else b
+
+
 def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.2, title: str | None = None,
-                  shade: bool = True, stairs_wall_height: float = 0.9) -> None:
-    """Axonometric 'exploded' building diagram: floor ribbons, low cut-away walls, stairs, path, labels."""
+                  shade: bool = True, stairs_wall_height: float = 0.9, slab: float = 0.15,
+                  show_path: bool = True) -> None:
+    """Clean isometric building diagram: floor slabs, cut-away walls, stairs with
+    treads and balustrades, the walk path, labels. Grouped per level for editing."""
+    S = AXO_STYLE
+    lw = S["line_w"]
     levels = {lv["id"]: lv for lv in diagram["levels"]}
-    faces: list[tuple[float, str]] = []     # (depth, svg)
+    faces = _Faces()
+    ppm = view.px_per_m
 
     def lvl_off(level_id: int) -> float:
         return view.explode_m * max(level_id, 0)
 
-    u, v, wv = view.axes()
-    light = np.array([0.3, -0.5, 0.8]); light /= np.linalg.norm(light)
-
-    def shade_color(normal: np.ndarray, base=(0.86, 0.86, 0.84)) -> str:
-        if not shade:
-            return "#b0aca3"
-        lam = 0.55 + 0.45 * max(0.0, float(normal @ light))
-        r, g, b = [int(255 * min(1.0, c * lam)) for c in base]
-        return f"#{r:02x}{g:02x}{b:02x}"
+    def run_layer(r: dict) -> str:
+        if r["kind"] == "stairs":
+            lo = min(r["level_from"], r["level_to"]) if r["level_from"] >= 0 and r["level_to"] >= 0 else max(r["level_from"], r["level_to"], 0)
+            return f"stairs-L{lo}"
+        return f"level-L{r['level']}"
 
     all_pts = []
+
+    def P(pts3, off=0.0):
+        p2, d = view.project(pts3, off)
+        all_pts.append(p2)
+        return p2 * ppm, d
+
+    def poly(p2, fill, stroke=S["line"], w=lw, extra=""):
+        return _poly(p2, fill=fill, stroke=stroke, stroke_width=w, stroke_linejoin="round") if not extra else \
+            _poly(p2, fill=fill, stroke=stroke, stroke_width=w, stroke_linejoin="round", **extra)
+
+    def slab_faces(layer: str, quad_top: np.ndarray, off0: float, off1: float, top_fill: str, thickness: float):
+        """Top face + the two visible side faces of a 4-point slab (l0,l1,r1,r0)."""
+        q = quad_top.copy()
+        offs = np.array([off0, off1, off1, off0])
+        q[:, 2] += offs
+        bottom = q.copy(); bottom[:, 2] -= thickness
+        p2, d = view.project(q); all_pts.append(p2)
+        faces.add(layer, _quad_depth(d) - 0.03, poly(p2 * ppm, top_fill))
+        # sides: 4 edges; draw only those facing the viewer
+        _, _, wv = view.axes()
+        for k in range(4):
+            k2 = (k + 1) % 4
+            e = q[k2, :2] - q[k, :2]
+            if np.linalg.norm(e) < 1e-6:
+                continue
+            n = np.array([e[1], -e[0]])          # outward for a CCW (seen from above) quad
+            n /= np.linalg.norm(n)
+            if np.array([n[0], n[1], 0.0]) @ wv <= 0:
+                continue
+            side = np.array([q[k], q[k2], bottom[k2], bottom[k]])
+            p2s, ds = view.project(side)
+            tone = _side_tone(n, view, S["floor_side_a"], S["floor_side_b"])
+            faces.add(layer, _quad_depth(ds) - 0.02, poly(p2s * ppm, tone))
+
     for r in diagram["runs"]:
-        off = lvl_off(r["level"] if r["kind"] == "flat" else min(r["level_from"], r["level_to"]) if r["level_from"] >= 0 else 0)
+        layer = run_layer(r)
         L = np.array(r["left_boundary"]); R = np.array(r["right_boundary"])
         n = len(L) - 1
-        for j in range(n):
-            quad = np.array([L[j], L[j + 1], R[j + 1], R[j]])
-            if r["kind"] == "stairs":
-                # interpolate exploded offset along the flight
-                tq = np.array([j / n, (j + 1) / n, (j + 1) / n, j / n])
-                o0, o1 = lvl_off(r["level_from"]), lvl_off(r["level_to"])
-                quad = quad.copy(); quad[:, 2] += o0 + (o1 - o0) * tq
-                p2, d = view.project(quad)
-                faces.append((float(d.mean()) - 0.01, _poly(p2 * view.px_per_m, fill=PALETTE["stairs"], stroke="#8c8577", stroke_width=1)))
-                # treads
+        if r["kind"] == "stairs":
+            o0, o1 = lvl_off(r["level_from"]), lvl_off(r["level_to"])
+            for j in range(n):
+                quad = np.array([L[j], L[j + 1], R[j + 1], R[j]])
+                # winding: left boundary then right reversed is CCW seen from above when the
+                # path runs forward with left on the left-hand side
+                t0, t1 = j / n, (j + 1) / n
+                slab_faces(layer, quad, o0 + (o1 - o0) * t0, o0 + (o1 - o0) * t1, S["stairs_top"], slab)
                 seg_len = np.linalg.norm(L[j + 1, :2] - L[j, :2]); m = int(seg_len / 0.3)
                 for k in range(1, m):
                     t = k / m
                     a = quad[0] + (quad[1] - quad[0]) * t; b = quad[3] + (quad[2] - quad[3]) * t
-                    pa, da = view.project(a); pb, _ = view.project(b)
-                    faces.append((float(da[0]), _line(pa[0] * view.px_per_m, pb[0] * view.px_per_m, stroke="#8c8577", stroke_width=1)))
-            else:
-                p2, d = view.project(quad, off)
-                faces.append((float(d.mean()) - 0.02, _poly(p2 * view.px_per_m, fill=PALETTE["floor"], stroke=PALETTE["floor_stroke"], stroke_width=0.8)))
-            all_pts.append(p2)
-        if r["kind"] == "stairs":
-            o0, o1 = lvl_off(r["level_from"]), lvl_off(r["level_to"])
-            for w in r["walls"]:
+                    off = o0 + (o1 - o0) * (t0 + (t1 - t0) * t)
+                    pa, da = view.project(a, off); pb, _ = view.project(b, off)
+                    faces.add(layer, float(da[0]) - 0.01, _line(pa[0] * ppm, pb[0] * ppm, stroke=S["tread"], stroke_width=lw * 0.8))
+            for w in r["walls"]:   # balustrades
                 a, b = np.array(w["a"]), np.array(w["b"])
                 quad = np.array([[*a, w["z0"] + o0], [*b, w["z1"] + o1], [*b, w["z1"] + o1 + stairs_wall_height],
                                  [*a, w["z0"] + o0 + stairs_wall_height]])
-                p2, d = view.project(quad)
-                faces.append((float(d.mean()), _poly(p2 * view.px_per_m, fill="#c9c3b6", fill_opacity=0.85,
-                                                     stroke=PALETTE["wall"], stroke_width=0.8)))
-                all_pts.append(p2)
-        # walls (flat runs only): vertical faces of height cutaway_height
-        if r["kind"] == "flat":
+                p2, d = P(quad)
+                faces.add(layer, _quad_depth(d), poly(p2, S["rail"], extra={"fill_opacity": 0.9}))
+        else:
+            off = lvl_off(r["level"])
+            for j in range(n):
+                quad = np.array([L[j], L[j + 1], R[j + 1], R[j]])
+                slab_faces(layer, quad, off, off, S["floor_top"], slab)
             for w in r["walls"]:
                 a, b = np.array(w["a"]), np.array(w["b"])
                 z0 = w["z0"]
+                e = b - a
+                nrm = np.array([-e[1], e[0]]); nrm /= max(np.linalg.norm(nrm), 1e-9)
+                if w["side"] == "right":
+                    nrm = -nrm            # points into the corridor
                 for t0, t1 in w["solid"]:
                     pa = a + (b - a) * t0; pb = a + (b - a) * t1
                     quad = np.array([[*pa, z0], [*pb, z0], [*pb, z0 + cutaway_height], [*pa, z0 + cutaway_height]])
-                    e = pb - pa
-                    normal = np.array([-e[1], e[0], 0.0]); normal /= max(np.linalg.norm(normal), 1e-9)
-                    if w["side"] == "right":
-                        normal = -normal
-                    # the wall faces the corridor (inwards); shade by |n . light|
-                    p2, d = view.project(quad, off)
-                    faces.append((float(d.mean()), _poly(p2 * view.px_per_m, fill=shade_color(np.abs(normal)), stroke=PALETTE["wall"], stroke_width=0.9)))
-                    # top edge darker for crispness
-                    faces.append((float(d.mean()) + 0.005, _line(p2[3] * view.px_per_m, p2[2] * view.px_per_m, stroke=PALETTE["wall"], stroke_width=1.6)))
-                    all_pts.append(p2)
+                    p2, d = P(quad, off)
+                    tone = _side_tone(nrm, view, S["wall_a"], S["wall_b"]) if shade else S["wall_a"]
+                    faces.add(layer, _quad_depth(d), poly(p2, tone))
+                    # wall top (thin slab look)
+                    th = 0.1
+                    top = np.array([[*(pa - nrm * th), z0 + cutaway_height], [*(pb - nrm * th), z0 + cutaway_height],
+                                    [*pb, z0 + cutaway_height], [*pa, z0 + cutaway_height]])
+                    p2t, dt = P(top, off)
+                    faces.add(layer, _quad_depth(dt) + 0.001, poly(p2t, S["wall_top"]))
                 for t0, t1 in w["openings"]:
                     pa = a + (b - a) * t0; pb = a + (b - a) * t1
-                    quad = np.array([[*pa, z0], [*pb, z0]])
-                    p2, d = view.project(quad, off)
-                    faces.append((float(d.mean()), _line(p2[0] * view.px_per_m, p2[1] * view.px_per_m, stroke=PALETTE["opening"], stroke_width=1.2, stroke_dasharray="4 3")))
+                    p2, d = P(np.array([[*pa, z0], [*pb, z0]]), off)
+                    faces.add(layer, _quad_depth(d), _line(p2[0], p2[1], stroke=S["muted"], stroke_width=lw,
+                                                            stroke_dasharray="3 3"))
     # path
-    pts = np.array(diagram["path"]["points"])
-    lv = diagram["path"].get("level") or [0] * len(pts)
-    offs = np.array([lvl_off(l) if l >= 0 else 0.0 for l in lv])
-    # stairs samples: interpolate the offset between neighbours
-    if view.explode_m:
-        idx = np.arange(len(lv)); good = np.array([l >= 0 for l in lv])
-        if good.any() and (~good).any():
-            offs[~good] = np.interp(idx[~good], idx[good], offs[good])
-    pp = pts.copy(); pp[:, 2] = pp[:, 2] - diagram.get("camera_height_m", 1.5) + 0.05 + offs
-    p2, d = view.project(pp)
-    faces.append((float(d.max()) + 0.5, _polyline(p2 * view.px_per_m, fill="none", stroke=PALETTE["path"], stroke_width=2.2,
-                                                   stroke_dasharray="7 4", stroke_linejoin="round")))
-    all_pts.append(p2)
+    if show_path:
+        pts = np.array(diagram["path"]["points"])
+        lv = diagram["path"].get("level") or [0] * len(pts)
+        offs = np.array([lvl_off(l) if l >= 0 else np.nan for l in lv], float)
+        if np.isnan(offs).any():
+            idx = np.arange(len(offs)); good = ~np.isnan(offs)
+            offs[~good] = np.interp(idx[~good], idx[good], offs[good]) if good.any() else 0.0
+        pp = pts.copy(); pp[:, 2] = pp[:, 2] - diagram.get("camera_height_m", 1.5) + 0.06 + offs
+        p2, d = P(pp)
+        faces.add("path", 0.0, _polyline(p2, fill="none", stroke=S["path"], stroke_width=lw * 1.8,
+                                         stroke_dasharray="6 4", stroke_linejoin="round", stroke_linecap="round"))
     # labels
-    fs = max(11.0, 0.4 * view.px_per_m)
-    label_svgs = []
+    fs = max(11.0, 0.4 * ppm)
     for lb in diagram.get("labels", []):
         p = np.array(lb["xyz"], float)
         off = lvl_off(lb.get("level", 0)) if lb.get("level", 0) >= 0 else 0.0
         base = p.copy(); base[2] = lb.get("floor_z", p[2])
-        top = base.copy(); top[2] += cutaway_height + 0.8
-        pb, _ = view.project(base, off); pt, _ = view.project(top, off)
-        pb = pb[0] * view.px_per_m; pt = pt[0] * view.px_per_m
+        top = base.copy(); top[2] += cutaway_height + 1.0
+        pb, _ = P(base, off); pt, _ = P(top, off)
+        pb, pt = pb[0], pt[0]
         is_stairs = lb.get("kind") == "stairs"
-        label_svgs.append(_line(pb, pt, stroke=PALETTE["muted"] if is_stairs else PALETTE["label"], stroke_width=1))
+        col = S["muted"] if is_stairs else S["label"]
+        faces.add("labels", 0.0, _line(pb, pt, stroke=col, stroke_width=lw))
         if not is_stairs:
-            label_svgs.append(f'<circle cx="{_fmt(pb[0])}" cy="{_fmt(pb[1])}" r="{_fmt(fs * 0.28)}" fill="{PALETTE["label_dot"]}"/>')
-        label_svgs.append(_text((pt[0] + 4, pt[1] - 2), lb["text"], fs * (0.8 if is_stairs else 1.0),
-                                fill=PALETTE["muted"] if is_stairs else PALETTE["label"], font_weight="700" if not is_stairs else "500"))
-        all_pts.append(np.array([pt / view.px_per_m, pb / view.px_per_m]))
-    # level name tags at the start of each level's first run
+            faces.add("labels", 0.0, f'<circle cx="{_fmt(pb[0])}" cy="{_fmt(pb[1])}" r="{_fmt(fs * 0.25)}" fill="{S["path"]}"/>')
+        faces.add("labels", 0.0, _text((pt[0] + 5, pt[1] - 3), lb["text"], fs * (0.8 if is_stairs else 1.0), fill=col,
+                                       font_weight="500" if is_stairs else "700"))
+    # level tags: at the left-most point of each level's floor geometry
+    per_level: dict[int, list[np.ndarray]] = {}
     for r in diagram["runs"]:
         if r["kind"] != "flat":
             continue
-        lv_ = levels.get(r["level"])
-        if lv_ is None or lv_.get("_tagged"):
+        pts3 = np.vstack([np.array(r["left_boundary"]), np.array(r["right_boundary"])])
+        p2, _ = view.project(pts3, lvl_off(r["level"]))
+        per_level.setdefault(r["level"], []).append(p2 * ppm)
+    for lid, chunks in per_level.items():
+        lv_ = levels.get(lid)
+        if lv_ is None:
             continue
-        lv_["_tagged"] = True
-        L = np.array(r["left_boundary"])
-        p2, _ = view.project(L[0], lvl_off(r["level"]))
-        q = p2[0] * view.px_per_m
-        label_svgs.append(_text((q[0] - fs * 0.4, q[1] + fs * 1.3), lv_["name"], fs * 0.9, fill=PALETTE["muted"], text_anchor="end"))
+        A_ = np.vstack(chunks)
+        k = int(np.argmin(A_[:, 0]))
+        faces.add("labels", 0.0, _text((A_[k, 0] - fs * 0.5, A_[k, 1] + fs * 1.5), lv_["name"], fs * 0.85,
+                                       fill=S["muted"], text_anchor="end", font_weight="500"))
+        all_pts.append(np.array([[A_[k, 0] / ppm - fs * 3 / ppm, A_[k, 1] / ppm]]))
 
-    A = np.vstack(all_pts) * view.px_per_m
+    A = np.vstack(all_pts) * ppm
     pad = fs * 3
     x0, y0 = A.min(axis=0) - pad; x1, y1 = A.max(axis=0) + pad
-    W, H = x1 - x0, y1 - y0 + fs * 2
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.0f}" height="{H:.0f}" viewBox="{x0:.1f} {y0 - fs * 2:.1f} {W:.1f} {H:.1f}" '
-           f'font-family="Helvetica, Arial, sans-serif">', f'<rect x="{x0:.1f}" y="{y0 - fs * 2:.1f}" width="{W:.1f}" height="{H:.1f}" fill="white"/>']
-    faces.sort(key=lambda f: f[0])
-    out += [s for _, s in faces]
-    out += label_svgs
+    top_extra = fs * 2.5 if title else fs
+    W, H = x1 - x0, (y1 - y0) + top_extra
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.0f}" height="{H:.0f}" '
+           f'viewBox="{x0:.1f} {y0 - top_extra:.1f} {W:.1f} {H:.1f}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">',
+           f'<rect x="{x0:.1f}" y="{y0 - top_extra:.1f}" width="{W:.1f}" height="{H:.1f}" fill="white"/>']
+    level_ids = sorted(levels)
+    order = []
+    for lid in level_ids:
+        order += [f"level-L{lid}", f"stairs-L{lid}"]
+    order += [k for k in faces.layers if k not in order and k not in ("path", "labels")]
+    order += ["path", "labels"]
+    out += faces.emit(order)
     if title:
-        out.append(_text((x0 + 12, y0 - fs * 0.6), title, fs * 1.3, fill=PALETTE["text"], font_weight="700"))
+        out.append(_text((x0 + 12, y0 - fs * 1.0), title, fs * 1.3, fill=S["label"], font_weight="700"))
     out.append("</svg>")
     Path(path).write_text("\n".join(out), encoding="utf-8")
