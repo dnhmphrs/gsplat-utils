@@ -27,7 +27,8 @@ from .mesh import Mesh, write_glb, write_obj
 from .occupancy import OccupancyGrid, corridor_half_widths
 from .path import (Level, PathSegment, dominant_angle, polyline_segments, resample_by_arclength,
                    segment_levels, smooth_positions, snap_rectilinear, tangents_xy, track_inliers)
-from .points import load_scene
+from .points import load_scene, scene_json_for
+from .stairs import atrium_for_stairs, is_atrium
 from .svg import AxoView, write_axo_svg, write_plan_svg
 
 
@@ -46,9 +47,15 @@ class GeometryConfig:
     iso_azimuth: float = -45.0
     iso_elevation: float = 35.264      # true isometric
     show_path: bool = True
+    draw_walls: bool = False           # walls are still computed (diagram.json) but not drawn by default
+    slab: float = 0.15                 # floor slab thickness drawn in the isometric / meshes
     band_lo: float = 0.35             # wall band above the floor (m)
     band_hi: float = 2.1
-    min_run_m: float = 1.5            # shortest straight piece / stairs run
+    min_run_m: float = 2.0            # shortest straight piece / stairs run
+    hall_half_width: float = 2.0      # a flat run this wide (median half-width) in an open space is drawn as a hall rectangle
+    hall_max_half: float = 4.0        # halls are drawn at most this wide (half) around the walked area
+    flight_half: tuple[float, float] = (0.5, 1.2)   # width range for flights of an open-well stair
+    max_trusted_factor: float = 4.0   # wall distances measured where the drift factor exceeds this are ignored
     smooth_sigma_m: float = 0.25      # camera path smoothing (metres along the track)
     default_half_width: float = 1.0   # when no wall is found on a side
     min_wall_bins: int = 2            # a wall cell has points in >= this many of 4 height bins
@@ -58,7 +65,9 @@ class GeometryConfig:
     stairs_labels: bool = True
     stairs_wall_height: float = 0.9     # balustrade height drawn beside flights
     stairs_style: str = "auto"          # "path" follows the flights, "simple" one straight sloped ribbon,
-                                        # "auto" = simple when the flights double back (switchback stairwell)
+                                        # "atrium" open-well stair around a void (flights + void + gallery ring),
+                                        # "auto" = atrium when the path encloses an area, simple when it doubles back
+    atrium_ring: bool = True            # draw the (inferred) gallery ring around an open well
 
 
 def _grid_for(points: np.ndarray, z_lo: float, z_hi: float, centre_xy: np.ndarray, cell: float,
@@ -145,8 +154,9 @@ def _label_at(text, xyz, path_pts, path_level, levels, camera_height) -> dict:
 
 def run_geometry(ws: Workspace, cfg: GeometryConfig) -> dict:
     model, src = load_scene(ws, source=cfg.source, model_dir=cfg.model_dir)
-    if ws.scene_json.exists():
-        al = SceneAlignment.load(ws.scene_json)
+    scene_path = scene_json_for(ws, cfg.model_dir)
+    if scene_path.exists():
+        al = SceneAlignment.load(scene_path)
     else:
         log.info("no scene.json; running alignment first")
         al = run_align(ws, source=cfg.source, model_dir=cfg.model_dir)
@@ -201,30 +211,90 @@ def run_geometry(ws: Workspace, cfg: GeometryConfig) -> dict:
         for k in widths:
             widths[k][idx] = w[k]
 
-    # ---- straight pieces -----------------------------------------------------
+    # where the rectification had to blow the scale up, the points around the path
+    # are reconstruction noise: do not trust wall distances there
+    fac_file = ws.root / "rectified" / "factors.json"
+    trusted = np.ones(len(res), bool)
+    if fac_file.exists() and model.source == "rectified":
+        fmap = read_json(fac_file).get("factors", {})
+        cam_f = np.array([fmap.get(n, 1.0) for n in am.names])
+        samp_f = cam_f[np.clip(np.round(src_idx).astype(int), 0, len(cam_f) - 1)]
+        trusted = samp_f <= cfg.max_trusted_factor
+        if (~trusted).any():
+            for k in widths:
+                widths[k][~trusted] = np.nan
+            log.info("wall distances ignored on %d/%d path samples (drift factor > %.0f)", int((~trusted).sum()),
+                     len(trusted), cfg.max_trusted_factor)
+
+    # ---- plan frame: rotate everything so the dominant corridor direction is +x
     flat_idx = np.nonzero(path_level >= 0)[0]
     theta = dominant_angle(tang[flat_idx] if len(flat_idx) else tang)
+    theta = float(((theta + np.pi / 4) % (np.pi / 2)) - np.pi / 4)   # representative nearest 0 (mod 90 deg)
+    plan_rot = float(theta)
+    if abs(plan_rot) > np.radians(0.5):
+        c_, s_ = np.cos(-plan_rot), np.sin(-plan_rot)
+        Rp = np.array([[c_, -s_, 0.0], [s_, c_, 0.0], [0.0, 0.0, 1.0]])
+        am = am.transformed(Rp, np.zeros(3), 1.0)
+        res_aligned = res.copy()
+        res = res @ Rp.T
+        tang = tangents_xy(res)
+        theta = 0.0
+    else:
+        res_aligned = res
     runs: list[Run] = []
     for ri, sg in enumerate(segments):
+        min_run = cfg.min_run_m
+        if sg.kind == "stairs" and cfg.stairs_style != "simple" and is_atrium(res[sg.i0:sg.i1, :2]):
+            min_run = min(cfg.min_run_m, 1.0)      # keep the flights around the well
         if cfg.manhattan:
-            segs = snap_rectilinear(res, sg.i0, sg.i1, theta, cfg.min_run_m, cfg.path_step)
+            segs = snap_rectilinear(res, sg.i0, sg.i1, theta, min_run, cfg.path_step)
         else:
             segs = polyline_segments(res, sg.i0, sg.i1, tol_m=0.4)
         if not segs:
             continue
-        if sg.kind == "stairs" and cfg.stairs_style != "path":
-            segs = _simplify_stairs(segs, res, sg, cfg.stairs_style)
+        atrium_here = False
+        hall_here = False
+        if sg.kind == "stairs":
+            xy = res[sg.i0:sg.i1, :2]
+            atrium_here = cfg.stairs_style == "atrium" or (cfg.stairs_style == "auto" and is_atrium(xy))
+            if not atrium_here and cfg.stairs_style != "path":
+                segs = _simplify_stairs(segs, res, sg, cfg.stairs_style)
+        else:
+            terminal = ri == 0 or ri == len(segments) - 1
+            hall_here, hall_half = _is_hall(widths, sg, res, tang, cfg, terminal=terminal)
+            if hall_here:
+                seg, hw = _hall_piece(res, sg, theta, hall_half, cfg)
+                segs = [seg]
         pieces = []
         for s in segs:
             s.kind = sg.kind
             s.level = sg.level
-            l, r, lf, rf = piece_widths(widths, s, cfg.default_half_width, max_half=cfg.max_half_width)
-            ops = piece_openings(widths, s, cfg.path_step) if sg.kind == "flat" else []
+            if hall_here:
+                l = r = hw; lf = rf = True; ops = []
+            elif np.mean(trusted[s.i0:max(s.i1, s.i0 + 1)]) < 0.5:
+                # mostly untrusted samples: the few remaining distances are not representative
+                l = r = cfg.default_half_width; lf = rf = False; ops = []
+            else:
+                l, r, lf, rf = piece_widths(widths, s, cfg.default_half_width, max_half=cfg.max_half_width)
+                ops = piece_openings(widths, s, cfg.path_step) if sg.kind == "flat" else []
             pieces.append(Piece(s, l, r, ops, lf, rf))
+        if atrium_here and pieces:   # flights around a well share one width
+            half = float(np.clip(np.median([(pc.left + pc.right) / 2 for pc in pieces]), *cfg.flight_half))
+            for pc in pieces:
+                pc.left = pc.right = half
         drop_corner_openings(pieces)
         floor_z = levels[sg.level].floor_z if sg.kind == "flat" else None
-        runs.append(build_run(len(runs), sg.kind, pieces, level=sg.level, level_from=sg.level_from,
-                              level_to=sg.level_to, floor_z=floor_z, camera_height=camera_height))
+        run = build_run(len(runs), sg.kind, pieces, level=sg.level, level_from=sg.level_from,
+                        level_to=sg.level_to, floor_z=floor_z, camera_height=camera_height)
+        run.hall = bool(hall_here)
+        if atrium_here:
+            half = float(np.clip(np.median([(pc.left + pc.right) / 2 for pc in pieces]), 0.5, 1.5))
+            zf = levels[sg.level_from].floor_z if 0 <= sg.level_from < len(levels) else float(res[sg.i0, 2] - camera_height)
+            zt = levels[sg.level_to].floor_z if 0 <= sg.level_to < len(levels) else float(res[sg.i1 - 1, 2] - camera_height)
+            run.atrium = atrium_for_stairs(res[sg.i0:sg.i1, :2], theta, half, zf, zt, ring=cfg.atrium_ring)
+            if run.atrium is None:
+                log.info("stairs run %d looked like an open well but no void rectangle fits; drawing flights only", run.id)
+        runs.append(run)
 
     labels = resolve_labels(cfg, ws, am, al, res, path_level, levels, camera_height)
     if cfg.stairs_labels:
@@ -233,14 +303,20 @@ def run_geometry(ws: Workspace, cfg: GeometryConfig) -> dict:
                 mid = 0.5 * (r.left_boundary[len(r.left_boundary) // 2] + r.right_boundary[len(r.right_boundary) // 2])
                 up_down = "up" if r.level_to > r.level_from else "down"
                 lv_name = levels[r.level_to].name if 0 <= r.level_to < len(levels) else "?"
-                labels.append({"text": f"Stairs {up_down} to {lv_name}", "xyz": [float(mid[0]), float(mid[1]), float(mid[2])],
+                kind = "Open stair" if r.atrium else "Stairs"
+                if r.atrium:   # label at the void centre instead of mid-flight
+                    c = np.array(r.atrium["corners"]).mean(axis=0)
+                    mid = np.array([c[0], c[1], mid[2]])
+                labels.append({"text": f"{kind} {up_down} to {lv_name}", "xyz": [float(mid[0]), float(mid[1]), float(mid[2])],
                                "level": int(min(r.level_from, r.level_to)) if r.level_from >= 0 else r.level_to,
                                "floor_z": float(mid[2]), "kind": "stairs"})
 
     # ---- diagram.json -------------------------------------------------------
     diagram = {
         "frame": "aligned", "units": "m", "camera_height_m": camera_height,
-        "note": f"scale from assumed camera height {camera_height:.2f} m; {src} points",
+        "plan_rotation_deg": float(np.degrees(plan_rot)),
+        "note": f"scale from assumed camera height {camera_height:.2f} m; {src} points"
+                + (f"; plan rotated {np.degrees(plan_rot):.1f} deg from the aligned frame" if abs(plan_rot) > 1e-6 else ""),
         "scene_scale_m_per_unit": al.scale,
         "levels": [{"id": lv.id, "name": lv.name, "floor_z": lv.floor_z, "ceiling_z": lv.ceiling_z,
                     "camera_z": lv.camera_z} for lv in levels],
@@ -259,24 +335,28 @@ def run_geometry(ws: Workspace, cfg: GeometryConfig) -> dict:
     }
     write_json(ws.geometry / "diagram.json", diagram)
     write_json(ws.geometry / "path.json", {"frame": "aligned", "step": cfg.path_step,
-                                           "points": res.round(4).tolist(), "level": path_level.tolist()})
+                                           "points": res_aligned.round(4).tolist(), "level": path_level.tolist()})
 
     # ---- SVG ----------------------------------------------------------------
-    allxy = np.vstack([np.array(r["outline"]) for r in diagram["runs"]] + [res[:, :2]])
+    allxy = np.vstack([np.array(q)[:, :2] for r in diagram["runs"] for q in r["quads"]] + [res[:, :2]])
     bounds = (allxy[:, 0].min(), allxy[:, 1].min(), allxy[:, 0].max(), allxy[:, 1].max())
     for lv in levels:
-        write_plan_svg(ws.geometry / f"plan_L{lv.id}.svg", diagram, lv.id, bounds, title=f"{lv.name} (floor z={lv.floor_z:.1f} m)")
-    write_plan_svg(ws.geometry / "plan_all.svg", diagram, None, bounds, title=cfg.title or "All levels")
+        write_plan_svg(ws.geometry / f"plan_L{lv.id}.svg", diagram, lv.id, bounds,
+                       title=f"{lv.name} (floor z={lv.floor_z:.1f} m)", draw_walls=cfg.draw_walls, show_path=cfg.show_path)
+    write_plan_svg(ws.geometry / "plan_all.svg", diagram, None, bounds, title=cfg.title or "All levels",
+                   draw_walls=cfg.draw_walls, show_path=cfg.show_path)
     view = AxoView(cfg.iso_azimuth, cfg.iso_elevation, cfg.explode)
-    write_axo_svg(ws.geometry / "iso.svg", diagram, view, cutaway_height=cfg.cutaway_height, title=cfg.title,
-                  stairs_wall_height=cfg.stairs_wall_height, show_path=cfg.show_path)
+    axo_kw = dict(cutaway_height=cfg.cutaway_height, title=cfg.title, stairs_wall_height=cfg.stairs_wall_height,
+                  show_path=cfg.show_path, draw_walls=cfg.draw_walls, slab=cfg.slab)
+    write_axo_svg(ws.geometry / "iso.svg", diagram, view, **axo_kw)
     if len(levels) > 1 and cfg.explode == 0:
         view2 = AxoView(cfg.iso_azimuth, cfg.iso_elevation, explode_m=2.5)
-        write_axo_svg(ws.geometry / "iso_exploded.svg", diagram, view2, cutaway_height=cfg.cutaway_height,
-                      title=cfg.title, stairs_wall_height=cfg.stairs_wall_height, show_path=cfg.show_path)
+        write_axo_svg(ws.geometry / "iso_exploded.svg", diagram, view2, **axo_kw)
 
     # ---- meshes -------------------------------------------------------------
     meshes = build_meshes(runs, res, path_level, cfg, camera_height)
+    if not cfg.draw_walls:
+        meshes = [m for m in meshes if not m.name.startswith("walls")]
     write_glb(ws.geometry / "diagram.glb", meshes)
     write_obj(ws.geometry / "diagram.obj", meshes)
 
@@ -289,6 +369,51 @@ def run_geometry(ws: Workspace, cfg: GeometryConfig) -> dict:
                            widths, idx, [r for r in runs if r.kind == "flat" and r.level == lv.id])
     log.info("geometry written to %s (%d runs, %d levels)", ws.geometry, len(runs), len(levels))
     return diagram
+
+
+def _hall_piece(res: np.ndarray, sg: PathSegment, theta: float, half: float, cfg: GeometryConfig):
+    """One straight piece whose ribbon is the (Manhattan-aligned) bounding box of
+    the walked area, padded by the median wall distance: an open hall."""
+    from .path import StraightSegment
+
+    xy = res[sg.i0:sg.i1, :2]
+    c, s_ = np.cos(-theta), np.sin(-theta)
+    Rz = np.array([[c, -s_], [s_, c]])
+    q = xy @ Rz.T
+    pad = float(np.clip(half, 0.8, cfg.hall_max_half))
+    lo, hi = q.min(axis=0) - pad, q.max(axis=0) + pad
+    size = hi - lo
+    centre = 0.5 * (lo + hi)
+    z = float(np.median(res[sg.i0:sg.i1, 2]))
+    if size[0] >= size[1]:
+        p0 = np.array([lo[0], centre[1]]); p1 = np.array([hi[0], centre[1]]); hw = size[1] / 2
+    else:
+        p0 = np.array([centre[0], lo[1]]); p1 = np.array([centre[0], hi[1]]); hw = size[0] / 2
+    # orient the piece along the walking direction so Start/End leaders make sense
+    if (q[-1] - q[0]) @ (p1 - p0) < 0:
+        p0, p1 = p1, p0
+    seg = StraightSegment(np.r_[p0 @ Rz, z], np.r_[p1 @ Rz, z], sg.i0, sg.i1, "x" if size[0] >= size[1] else "y")
+    return seg, float(hw)
+
+
+def _is_hall(widths: dict, sg: PathSegment, res: np.ndarray, tang: np.ndarray, cfg: GeometryConfig,
+             terminal: bool = False) -> tuple[bool, float]:
+    idx = np.arange(sg.i0, sg.i1)
+    l, r = widths["left"][idx], widths["right"][idx]
+    vals = np.r_[l[~np.isnan(l)], r[~np.isnan(r)]]
+    both = float(np.median(vals)) if len(vals) else float("nan")
+    ang = np.arctan2(tang[idx, 1], tang[idx, 0])
+    turning = float(np.sum(np.abs(np.angle(np.exp(1j * np.diff(ang)))))) if len(idx) > 1 else 0.0
+    length = len(idx) * cfg.path_step
+    xy = res[idx, :2]
+    diag = float(np.linalg.norm(xy.max(axis=0) - xy.min(axis=0))) if len(idx) else 0.0
+    # wide on both sides and either turning a lot or short relative to the width
+    if np.isfinite(both) and both >= cfg.hall_half_width and (turning > np.radians(150) or length < 4 * both):
+        return True, both
+    # the start/end of a recording: a compact, wandering stretch (the person looks around)
+    if terminal and diag < 10.0 and turning > np.radians(200) and length > 3.0:
+        return True, max(both if np.isfinite(both) else 0.0, 1.0)
+    return False, both if np.isfinite(both) else cfg.default_half_width
 
 
 def _simplify_stairs(segs, res: np.ndarray, sg: PathSegment, style: str):
@@ -317,6 +442,9 @@ def _run_json(r: Run) -> dict:
         "left_boundary": r.left_boundary.round(4).tolist(),
         "right_boundary": r.right_boundary.round(4).tolist(),
         "outline": r.outline.round(4).tolist(),
+        "quads": [q.round(4).tolist() for q in r.piece_quads()],
+        "atrium": r.atrium,
+        "hall": bool(getattr(r, "hall", False)),
         "walls": [{"a": w.a.round(4).tolist(), "b": w.b.round(4).tolist(), "side": w.side, "piece": w.piece,
                    "z0": round(w.z0, 4), "z1": round(w.z1, 4), "openings": [list(o) for o in w.openings],
                    "solid": [list(s) for s in w.solid_parts()]} for w in r.walls],
@@ -330,11 +458,26 @@ def build_meshes(runs: list[Run], path: np.ndarray, path_level: np.ndarray, cfg:
     walls = Mesh("walls", (0.55, 0.55, 0.55, 1.0))
     walls_low = Mesh("walls_cutaway", (0.45, 0.45, 0.47, 1.0))
     route = Mesh("path", (0.85, 0.28, 0.17, 1.0))
-    slab = 0.12
+    atrium = Mesh("atrium", (0.35, 0.35, 0.37, 1.0))
+    slab = cfg.slab
     for r in runs:
         for quad in r.piece_quads():
             bottom = quad.copy(); bottom[:, 2] -= slab
             (stairs if r.kind == "stairs" else floors).add_prism(bottom, quad)
+        if r.atrium:
+            corners = np.array(r.atrium["corners"])
+            for z in (r.atrium["z0"], r.atrium["z1"]):
+                for q in r.atrium.get("ring", []):
+                    top = np.c_[np.array(q), np.full(4, z)]
+                    bottom = top.copy(); bottom[:, 2] -= slab
+                    floors.add_prism(bottom, top)
+                for k in range(4):
+                    a, b = corners[k], corners[(k + 1) % 4]
+                    atrium.add_box_between(np.r_[a, z], np.r_[b, z], 0.06, 0.0, 0.06)
+            for k in range(4):
+                c = corners[k]
+                atrium.add_box_between(np.r_[c - [0.03, 0], r.atrium["z0"]], np.r_[c + [0.03, 0], r.atrium["z0"]], 0.06,
+                                       0.0, r.atrium["z1"] - r.atrium["z0"])
         if r.kind == "flat":
             for w in r.walls:
                 for t0, t1 in w.solid_parts():
@@ -348,7 +491,7 @@ def build_meshes(runs: list[Run], path: np.ndarray, path_level: np.ndarray, cfg:
     pz = path.copy(); pz[:, 2] -= camera_height - 0.05
     for k in range(len(pz) - 1):
         route.add_box_between(pz[k], pz[k + 1], 0.12, 0.0, 0.04)
-    return [floors, stairs, walls, walls_low, route]
+    return [floors, stairs, walls, walls_low, atrium, route]
 
 
 def _debug_png(path, grid: OccupancyGrid, pts, tang, widths, idx, runs: list[Run]) -> None:

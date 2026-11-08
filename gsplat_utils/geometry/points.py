@@ -36,15 +36,33 @@ def gaussian_points(
     return xyz, rgb
 
 
+def scene_json_for(ws: Workspace, model_dir: os.PathLike | str | None = None, use_rectified: bool = True) -> Path:
+    """The alignment that belongs to the scene `load_scene` would return."""
+    rect = ws.root / "rectified"
+    if use_rectified and model_dir is None and (rect / "cameras.json").exists():
+        return rect / "scene.json"
+    return ws.scene_json
+
+
 def load_scene(ws: Workspace, source: str = "auto", model_dir: os.PathLike | str | None = None,
-               splat_ply: os.PathLike | str | None = None) -> tuple[SceneModel, str]:
+               splat_ply: os.PathLike | str | None = None, use_rectified: bool = True) -> tuple[SceneModel, str]:
     """Return (SceneModel with points filled from the chosen source, source_name).
 
-    Cameras always come from the COLMAP model (training does not move them)."""
-    model_dir = Path(model_dir) if model_dir else ws.model
+    Prefers work/rectified (drift-corrected, stitched, metric) when it exists and
+    no explicit model_dir is given; otherwise the COLMAP model."""
+    rect = ws.root / "rectified"
     splat_ply = Path(splat_ply) if splat_ply else ws.splat_ply
     if source == "auto":
         source = "splat" if splat_ply.exists() else "sfm"
+    if use_rectified and model_dir is None and (rect / "cameras.json").exists():
+        pts, cols = read_point_ply(rect / "points.ply")
+        model = SceneModel.from_cameras_json(rect / "cameras.json", pts, cols)
+        model.source = "rectified"
+        log.info("scene: %d cameras, %d points (rectified; source=%s)", model.n_images, len(model.points), source)
+        if source == "splat":
+            log.warning("--source splat with a rectified scene: the splat is in the raw COLMAP frame, using SfM points instead")
+        return model, "sfm"
+    model_dir = Path(model_dir) if model_dir else ws.model
     if model_dir.exists():
         model = SceneModel.from_colmap(model_dir, ws.frames_meta)
     elif ws.cameras_json.exists():

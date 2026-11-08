@@ -4,6 +4,7 @@
     gsu sfm      --work W                              COLMAP sparse model, cameras.json
     gsu use-model --work W --model DIR                 switch to another sub-model
     gsu align    --work W                              scene.json (up axis, floor, scale)
+    gsu rectify  --work W                              drift-corrected, stitched metric scene (work/rectified)
     gsu train    --work W                              Gaussian splat (GPU, gsplat)
     gsu export   --work W                              model.splat for the web viewer
     gsu geometry --work W                              corridor/wall geometry + diagrams
@@ -45,6 +46,8 @@ def _add_ingest_args(p: argparse.ArgumentParser) -> None:
                    help="video: drop frames sharper than this fraction of the median (0 = keep all)")
     p.add_argument("--sequential", action="store_true",
                    help="photos were shot as an ordered walk (use sequential matching)")
+    p.add_argument("--add", action="store_true",
+                   help="video: keep existing frames and add more (e.g. --add --start 90 --end 96 --every 1)")
 
 
 def cmd_ingest(a: argparse.Namespace) -> None:
@@ -56,7 +59,7 @@ def cmd_ingest(a: argparse.Namespace) -> None:
         extract_video_frames(
             a.video, ws.frames, target_frames=a.frames, every=a.every, max_size=a.max_size,
             start_s=a.start, end_s=a.end, min_gap_s=a.min_gap, drop_blur=a.drop_blur,
-            sampling=a.sampling, meta_path=ws.frames_meta,
+            sampling=a.sampling, meta_path=ws.frames_meta, add=a.add,
         )
     else:
         from .ingest.images import import_image_dir
@@ -84,6 +87,8 @@ def _add_sfm_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--max-features", type=int, default=8192)
     p.add_argument("--max-image-size", type=int, default=1600, help="SIFT extraction image size cap")
     p.add_argument("--no-undistort", action="store_true", help="skip undistorted export for training")
+    p.add_argument("--keep-database", action="store_true",
+                   help="reuse features/matches already in colmap/database.db (only new frames/pairs are processed)")
     p.add_argument("--use-gpu", action="store_true", help="use CUDA SIFT if pycolmap has CUDA")
     p.add_argument("--mapper", choices=["auto", "incremental", "global"], default="auto",
                    help="global = GLOMAP (default for video), incremental = classic COLMAP")
@@ -97,7 +102,7 @@ def cmd_sfm(a: argparse.Namespace) -> None:
         vocab_tree=a.vocab_tree, camera_model=a.camera_model, max_features=a.max_features,
         max_image_size=a.max_image_size, undistort=not a.no_undistort, use_gpu=a.use_gpu,
         mapper=a.mapper, preset=a.preset, focal_px=a.focal, intrinsics_prior=a.intrinsics_prior,
-        verbose=a.verbose,
+        verbose=a.verbose, keep_database=a.keep_database,
     )
 
 
@@ -156,6 +161,13 @@ def cmd_status(a: argparse.Namespace) -> None:
         print(f"poses: {[p['id'] for p in read_json(ws.poses_json).get('poses', [])]}")
     if ws.web.exists():
         print(f"web: {ws.web}")
+
+
+def cmd_rectify(a: argparse.Namespace) -> None:
+    from .sfm.rectify import run_rectify
+
+    run_rectify(Workspace(a.work), model_dirs=a.models or None, camera_height=a.camera_height,
+                walking_speed=a.walking_speed, min_images=a.min_images, drift=not a.no_drift, window_s=a.window)
 
 
 def cmd_use_model(a: argparse.Namespace) -> None:
@@ -245,6 +257,9 @@ def _add_geometry_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--labels", type=Path, default=None,
                    help="JSON of labels to draw: [{\"text\":\"Studio\",\"image\":\"frame_000123.jpg\"} | {\"text\":..,\"xyz\":[..]}]")
     p.add_argument("--no-path", dest="show_path", action="store_false", help="hide the walk path in the diagrams")
+    p.add_argument("--walls", dest="draw_walls", action="store_true",
+                   help="also draw the detected walls (off by default: floor slabs, stairs, path and labels only)")
+    p.add_argument("--slab", type=float, default=0.15, help="floor slab thickness drawn in the isometric (m)")
     p.add_argument("--iso-azimuth", type=float, default=-45.0, help="isometric view direction (deg)")
     p.add_argument("--stairs-style", choices=["auto", "path", "simple"], default="auto",
                    help="draw stairs along the real flights or as one straight sloped ribbon")
@@ -263,7 +278,7 @@ def cmd_geometry(a: argparse.Namespace) -> None:
         cutaway_height=a.cutaway, path_step=a.path_sample, stair_slope=a.stair_slope,
         manhattan=a.manhattan, labels=a.labels, model_dir=getattr(a, "model", None),
         explode=a.explode, title=a.title, min_wall_bins=a.wall_bins, stairs_style=a.stairs_style,
-        show_path=a.show_path, iso_azimuth=a.iso_azimuth,
+        show_path=a.show_path, iso_azimuth=a.iso_azimuth, draw_walls=a.draw_walls, slab=a.slab,
     )
     run_geometry(Workspace(a.work), cfg)
 
@@ -308,6 +323,10 @@ def cmd_run(a: argparse.Namespace) -> None:
     else:
         log.info("COLMAP model exists, skipping sfm")
     cmd_align(a)
+    if a.video or (ws.frames_meta.exists() and ws.frames_meta.read_text().find('"time_s"') >= 0):
+        from .sfm.rectify import run_rectify
+
+        run_rectify(ws, camera_height=a.camera_height, walking_speed=a.walking_speed)
     cmd_geometry(a)
 
 
@@ -319,6 +338,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("ingest", help="video/photos -> frames"); _add_work(p); _add_ingest_args(p); p.set_defaults(fn=cmd_ingest)
     p = sub.add_parser("sfm", help="COLMAP structure from motion"); _add_work(p); _add_sfm_args(p); p.set_defaults(fn=cmd_sfm)
+    p = sub.add_parser("rectify", help="align + drift-correct + stitch the sub-models into one metric scene for the diagram")
+    _add_work(p)
+    p.add_argument("--models", nargs="*", type=Path, default=None, help="COLMAP model dirs (default: all in colmap/sparse/models)")
+    p.add_argument("--camera-height", type=float, default=1.5)
+    p.add_argument("--walking-speed", type=float, default=1.0)
+    p.add_argument("--min-images", type=int, default=30)
+    p.add_argument("--window", type=float, default=4.0, help="time window (s) for the local floor-distance scale")
+    p.add_argument("--no-drift", action="store_true", help="skip the scale-drift correction")
+    p.set_defaults(fn=cmd_rectify)
     p = sub.add_parser("status", help="summarise what each stage produced"); _add_work(p); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("use-model", help="promote a COLMAP sub-model (e.g. colmap/sparse/models/3) to the workspace model")
     _add_work(p); p.add_argument("--model", required=True, type=Path); p.add_argument("--no-undistort", action="store_true")

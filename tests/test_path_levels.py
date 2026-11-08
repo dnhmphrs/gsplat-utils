@@ -42,3 +42,20 @@ def test_track_inliers_drops_jumps():
     pos[120] += [3.0, -4.0, 2.0]
     keep = track_inliers(pos)
     assert not keep[50] and not keep[120] and keep.sum() == 198
+
+
+def test_atrium_detection_and_void():
+    from gsplat_utils.geometry.stairs import atrium_void, is_atrium, loopiness
+
+    # square spiral around a 3x3 m void with 1.2 m wide flights: centreline at 0.6 m off the void
+    r = 0.6
+    sq = np.array([[-r, -r], [3 + r, -r], [3 + r, 3 + r], [-r, 3 + r], [-r, -r], [3 + r, -r]])
+    pts = np.vstack([np.linspace(sq[i], sq[i + 1], 12, endpoint=False) for i in range(len(sq) - 1)])
+    assert loopiness(pts) > 0.4
+    assert is_atrium(pts)
+    straight = np.c_[np.linspace(0, 8, 30), np.zeros(30)] + np.random.default_rng(0).normal(0, 0.03, (30, 2))
+    assert not is_atrium(straight)
+    void = atrium_void(pts, 0.0, 0.6)
+    assert void is not None
+    lo, hi = void.min(axis=0), void.max(axis=0)
+    assert np.allclose(lo, [0.0, 0.0], atol=0.02) and np.allclose(hi, [3.0, 3.0], atol=0.02)

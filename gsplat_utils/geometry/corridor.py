@@ -76,6 +76,9 @@ class Run:
     left_boundary: np.ndarray       # (K,3)
     right_boundary: np.ndarray      # (K,3)
     walls: list[Wall]
+    atrium: dict | None = None      # open-well stair: {"corners", "z0", "z1", "ring", "flight_width"}
+    hall: bool = False              # open area drawn as a rectangle rather than a corridor ribbon
+    corners: np.ndarray | None = None   # (n,4,3) per piece: l0, l1, r1, r0
 
     @property
     def outline(self) -> np.ndarray:
@@ -84,6 +87,8 @@ class Run:
 
     def piece_quads(self) -> list[np.ndarray]:
         """Per piece: 4 corner points (3D) l0, l1, r1, r0."""
+        if self.corners is not None:
+            return [self.corners[j] for j in range(len(self.pieces))]
         quads = []
         for j in range(len(self.pieces)):
             l0, l1 = self.left_boundary[j], self.left_boundary[j + 1]
@@ -148,51 +153,41 @@ def drop_corner_openings(pieces: list[Piece], end_slack_m: float = 1.0) -> None:
         b.openings = [o for o in b.openings if not (o.side == inside and o.s0 < reach_b)]
 
 
-def _offset_boundary(pieces: list[Piece], side: str) -> np.ndarray:
-    """Boundary polyline on one side with mitred corners (3D: z follows the centreline)."""
+def _offset_sides(pieces: list[Piece], side: str, max_mitre_m: float = 2.0) -> tuple[np.ndarray, np.ndarray]:
+    """Per piece (start, end) boundary points on one side, (n,3) each.
+
+    Consecutive pieces share a mitred corner when the mitre is sane; otherwise
+    (U-turns, very different widths) each piece keeps its own rectangle end and
+    the ribbon simply overlaps there."""
     sign = 1.0 if side == "left" else -1.0
-    pts = []
+    n = len(pieces)
+    starts = np.zeros((n, 3)); ends = np.zeros((n, 3))
     for j, pc in enumerate(pieces):
         w = pc.left if side == "left" else pc.right
-        n = pc.seg.normal * sign * w
-        if j == 0:
-            pts.append(np.r_[pc.p0[:2] + n, pc.p0[2]])
-        if j < len(pieces) - 1:
-            nx = pieces[j + 1]
-            wn = nx.left if side == "left" else nx.right
-            n2 = nx.seg.normal * sign * wn
-            d1, d2 = pc.seg.direction, nx.seg.direction
-            cosang = float(np.clip(d1 @ d2, -1, 1))
-            P = None
-            if cosang > -0.85:   # not a U-turn: try the mitre
-                P = _intersect2(pc.p0[:2] + n, d1, nx.p0[:2] + n2, d2)
-                if P is not None and np.linalg.norm(P - (pc.p1[:2] + n)) > 3.0 * max(w, wn) + 0.5:
-                    P = None
-            if P is None:        # parallel / U-turn: bevel with both offsets
-                pts.append(np.r_[pc.p1[:2] + n, pc.p1[2]])
-                pts.append(np.r_[nx.p0[:2] + n2, nx.p0[2]])
-                pts.pop(-2) if np.linalg.norm(pts[-1][:2] - pts[-2][:2]) < 1e-6 else None
-            else:
-                pts.append(np.r_[P, pc.p1[2]])
-        else:
-            pts.append(np.r_[pc.p1[:2] + n, pc.p1[2]])
-    # one boundary vertex per piece end: if a bevel inserted an extra vertex, keep it but
-    # callers that need per-piece quads use `piece_quads` which indexes j, j+1 -> so we
-    # collapse bevel pairs by averaging to keep K == len(pieces)+1.
-    if len(pts) != len(pieces) + 1:
-        pts = _collapse_to(pts, len(pieces) + 1)
-    return np.array(pts)
+        off = pc.seg.normal * sign * w
+        starts[j] = np.r_[pc.p0[:2] + off, pc.p0[2]]
+        ends[j] = np.r_[pc.p1[:2] + off, pc.p1[2]]
+    for j in range(n - 1):
+        pc, nx = pieces[j], pieces[j + 1]
+        w = pc.left if side == "left" else pc.right
+        wn = nx.left if side == "left" else nx.right
+        d1, d2 = pc.seg.direction, nx.seg.direction
+        if float(np.clip(d1 @ d2, -1, 1)) <= -0.85:
+            continue                       # U-turn: keep separate ends
+        P = _intersect2(starts[j, :2], d1, starts[j + 1, :2], d2)
+        if P is None:
+            continue                       # parallel: jog, keep separate ends
+        if np.linalg.norm(P - ends[j, :2]) > min(3.0 * max(w, wn) + 0.5, max_mitre_m):
+            continue                       # mitre would spike
+        ends[j, :2] = P
+        starts[j + 1, :2] = P
+    return starts, ends
 
 
-def _collapse_to(pts: list[np.ndarray], k: int) -> list[np.ndarray]:
-    pts = list(pts)
-    while len(pts) > k:
-        # merge the closest consecutive pair
-        d = [np.linalg.norm(pts[i + 1][:2] - pts[i][:2]) for i in range(len(pts) - 1)]
-        i = int(np.argmin(d))
-        pts[i] = 0.5 * (pts[i] + pts[i + 1])
-        del pts[i + 1]
-    return pts
+def _offset_boundary(pieces: list[Piece], side: str) -> np.ndarray:
+    """Continuous boundary polyline (n+1, 3): piece starts plus the last end."""
+    starts, ends = _offset_sides(pieces, side)
+    return np.vstack([starts, ends[-1:]])
 
 
 def _intersect2(p, d, q, e):
@@ -205,19 +200,21 @@ def _intersect2(p, d, q, e):
 
 def build_run(run_id: int, kind: str, pieces: list[Piece], level: int = -1, level_from: int = -1,
               level_to: int = -1, floor_z: float | None = None, camera_height: float = 1.5) -> Run:
-    left = _offset_boundary(pieces, "left")
-    right = _offset_boundary(pieces, "right")
-    # floor height along the boundary: level floor for corridors, camera z - height for stairs
+    ls, le = _offset_sides(pieces, "left")
+    rs, re_ = _offset_sides(pieces, "right")
+    corners = np.stack([ls, le, re_, rs], axis=1)          # (n,4,3)
+    left = np.vstack([ls, le[-1:]]); right = np.vstack([rs, re_[-1:]])
+    # floor height: level floor for corridors, camera z - height for stairs
     if kind == "flat" and floor_z is not None:
-        left[:, 2] = floor_z
-        right[:, 2] = floor_z
+        for arr in (left, right, corners):
+            arr[..., 2] = floor_z
     else:
-        left[:, 2] -= camera_height
-        right[:, 2] -= camera_height
+        for arr in (left, right, corners):
+            arr[..., 2] -= camera_height
     walls: list[Wall] = []
     for j, pc in enumerate(pieces):
-        for side, bnd, found in (("left", left, pc.left_found), ("right", right, pc.right_found)):
-            a, b = bnd[j], bnd[j + 1]
+        for side, (sa, ea), found in (("left", (ls, le), pc.left_found), ("right", (rs, re_), pc.right_found)):
+            a, b = corners[j, 0 if side == "left" else 3], corners[j, 1 if side == "left" else 2]
             L = float(np.linalg.norm(b[:2] - a[:2]))
             if L < 1e-6:
                 continue
@@ -228,4 +225,4 @@ def build_run(run_id: int, kind: str, pieces: list[Piece], level: int = -1, leve
                 if o.side == side:
                     ops.append((max(0.0, o.s0 / max(pc.length, 1e-6)), min(1.0, o.s1 / max(pc.length, 1e-6))))
             walls.append(Wall(a[:2].copy(), b[:2].copy(), side, j, ops, float(a[2]), float(b[2])))
-    return Run(run_id, kind, level, level_from, level_to, pieces, left, right, walls)
+    return Run(run_id, kind, level, level_from, level_to, pieces, left, right, walls, corners=corners)

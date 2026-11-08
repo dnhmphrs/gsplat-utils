@@ -332,9 +332,11 @@ def align_scene(model: SceneModel, camera_height: float = 1.5, scale: float | No
 def run_align(ws: Workspace, camera_height: float = 1.5, scale: float | None = None,
               up_method: str = "auto", source: str = "auto", model_dir: os.PathLike | str | None = None,
               walking_speed: float = 1.0) -> SceneAlignment:
-    model, src = load_scene(ws, source=source, model_dir=model_dir)
+    model, src = load_scene(ws, source=source, model_dir=model_dir, use_rectified=False)
     al = align_scene(model, camera_height=camera_height, scale=scale, up_method=up_method, source_name=src,
                      walking_speed=walking_speed)
     write_json(ws.scene_json, al.to_json())
     log.info("wrote %s", ws.scene_json)
+    if (ws.root / "rectified" / "cameras.json").exists():
+        log.info("note: work/rectified exists and takes precedence in `gsu geometry` (delete it or re-run `gsu rectify`)")
     return al

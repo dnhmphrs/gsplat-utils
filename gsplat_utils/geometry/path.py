@@ -98,6 +98,8 @@ def segment_levels(
     level_merge_m: float = 1.5,
     slope_window_m: float = 1.5,
     max_landing_m: float = 3.5,
+    ramp_slope: float = 0.12,
+    ramp_window_m: float = 3.0,
 ) -> tuple[list[PathSegment], list[Level]]:
     """Split a resampled path into flat runs and stairs; group flat runs into levels.
 
@@ -106,7 +108,11 @@ def segment_levels(
     `level_merge_m` are merged (same physical floor visited twice: floors are
     >= 2.5 m apart, drift over a walk is usually less). A short flat run
     (<= max_landing_m) between two flights climbing in the same direction is a
-    landing and becomes part of one stairs run."""
+    landing and becomes part of one stairs run. Besides the local slope test, a
+    sustained rise (|dz/ds| over +-ramp_window_m above ramp_slope) also counts as
+    stairs, so gentle ramps and spiral stairs whose rise is spread around corners
+    are not missed; the ends of such runs are trimmed back to where the climb
+    really starts."""
     n = len(pts)
     if n < 3:
         lv = Level(0, float(pts[:, 2].mean() - camera_height), float(pts[:, 2].mean()), n)
@@ -117,9 +123,46 @@ def segment_levels(
     slope = np.gradient(zs) / step
     slope = median_filter(slope, size=win, mode="nearest")
     stairs = np.abs(slope) > stair_slope
+    w2 = max(2, int(round(ramp_window_m / step)))
+    if n > 2 * w2 + 1:
+        long_slope = np.zeros(n)
+        long_slope[w2:-w2] = (zs[2 * w2:] - zs[:-2 * w2]) / (2 * w2 * step)
+        long_slope[:w2] = long_slope[w2]
+        long_slope[-w2:] = long_slope[-w2 - 1]
+        stairs |= np.abs(long_slope) > ramp_slope
 
     # run-length encode and absorb runs shorter than min_run_m
     runs = _runs(stairs)
+    # trim stairs runs back to where the climb really happens (the long window
+    # also flags a few metres of flat path on either side of a steep flight)
+    trimmed = []
+    for kind, a, b in runs:
+        if kind and b - a > 2:
+            m = float(np.mean(np.abs(slope[a:b])))
+            while a < b - 1 and abs(slope[a]) < 0.5 * m:
+                a += 1
+            while b > a + 1 and abs(slope[b - 1]) < 0.5 * m:
+                b -= 1
+        trimmed.append([kind, a, b])
+    # re-close gaps left by trimming (flat fills them)
+    runs = []
+    pos = 0
+    for kind, a, b in trimmed:
+        if a > pos:
+            if runs and not runs[-1][0]:
+                runs[-1] = (False, runs[-1][1], a)
+            else:
+                runs.append((False, pos, a))
+        if runs and runs[-1][0] == kind:
+            runs[-1] = (kind, runs[-1][1], b)
+        else:
+            runs.append((kind, a, b))
+        pos = b
+    if pos < n:
+        if runs and not runs[-1][0]:
+            runs[-1] = (False, runs[-1][1], n)
+        else:
+            runs.append((False, pos, n))
     min_run = max(1, int(round(min_run_m / step)))
     changed = True
     while changed and len(runs) > 1:

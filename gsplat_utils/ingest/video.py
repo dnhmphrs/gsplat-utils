@@ -127,6 +127,7 @@ def extract_video_frames(
     drop_blur: float = 0.1,
     sampling: str = "motion",
     meta_path: os.PathLike | str | None = None,
+    add: bool = False,
 ) -> dict:
     """Extract frames and write `frames_meta.json`.
 
@@ -138,12 +139,22 @@ def extract_video_frames(
         video's median sharpness (0 disables). Such frames rarely register in SfM.
     sampling: "motion" = windows of equal visual change (dense where the camera
         turns/moves fast, sparse when still); "uniform" = equal time windows.
+    add: keep the existing frame set and only add frames (use with --start/--end
+        and --every 1 to densify a stretch where the reconstruction broke).
     """
     video = probe_video(video_path)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    for old in out_dir.glob("frame_*.jpg"):
-        old.unlink()
+    meta_file = Path(meta_path) if meta_path else (out_dir.parent / "frames_meta.json")
+    existing = {}
+    if add and meta_file.exists():
+        from ..common import read_json
+
+        old_meta = read_json(meta_file)
+        existing = {f["name"]: f for f in old_meta.get("frames", [])}
+    else:
+        for old in out_dir.glob("frame_*.jpg"):
+            old.unlink()
 
     log.info(
         "video %dx%d @ %.3f fps, %.1fs, ~%d frames",
@@ -163,6 +174,11 @@ def extract_video_frames(
         else:
             picks = pick_per_window(sharp, target_frames, min_gap=min_gap)
     picks = sorted(set(picks))
+    if existing:
+        picks = [p for p in picks if f"frame_{int(frame_idx[p]):06d}.jpg" not in existing]
+        log.info("--add: %d new frames (%d already present)", len(picks), len(existing))
+        if not picks:
+            return old_meta
     if drop_blur > 0:
         thr = drop_blur * float(np.median(sharp))
         n_before = len(picks)
@@ -217,15 +233,21 @@ def extract_video_frames(
     for extra in produced[len(picks):]:
         extra.unlink()
 
-    meta = {
-        "source": {"type": "video", **asdict(video)},
-        "sequential": True,
-        "selection": {
-            "target_frames": target_frames, "every": every, "max_size": max_size,
-            "start_s": start_s, "end_s": end_s, "min_gap_s": min_gap_s, "drop_blur": drop_blur,
-            "sampling": sampling,
-        },
-        "frames": frames,
-    }
-    write_json(meta_path or (out_dir.parent / "frames_meta.json"), meta)
+    if existing:
+        meta = old_meta
+        meta["frames"] = sorted(list(existing.values()) + frames, key=lambda f: f["index"])
+        meta.setdefault("additions", []).append({"start_s": start_s, "end_s": end_s, "every": every,
+                                                 "target_frames": target_frames, "n_added": len(frames)})
+    else:
+        meta = {
+            "source": {"type": "video", **asdict(video)},
+            "sequential": True,
+            "selection": {
+                "target_frames": target_frames, "every": every, "max_size": max_size,
+                "start_s": start_s, "end_s": end_s, "min_gap_s": min_gap_s, "drop_blur": drop_blur,
+                "sampling": sampling,
+            },
+            "frames": frames,
+        }
+    write_json(meta_file, meta)
     return meta

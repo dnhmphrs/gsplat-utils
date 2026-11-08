@@ -90,6 +90,7 @@ def run_sfm(
     focal_px: float | None = None,
     intrinsics_prior: str = "auto",
     verbose: bool = False,
+    keep_database: bool = False,
 ) -> SceneModel:
     """Run the whole SfM stage.
 
@@ -143,11 +144,17 @@ def run_sfm(
         log.info("intrinsics prior: %s %s", prior[0], prior[1])
 
     ws.colmap.mkdir(parents=True, exist_ok=True)
-    if ws.database.exists():
+    if ws.database.exists() and not keep_database:
         log.info("removing old database %s", ws.database)
         ws.database.unlink()
+    elif ws.database.exists():
+        log.info("keeping %s: features/matches of known frames and pairs are reused", ws.database)
     if ws.sparse.exists():
-        shutil.rmtree(ws.sparse)
+        stale = ws.colmap / "sparse_previous"
+        if stale.exists():
+            shutil.rmtree(stale)
+        shutil.move(str(ws.sparse), str(stale))
+        log.info("previous reconstruction moved to %s", stale)
     ws.sparse.mkdir(parents=True)
 
     want_cuda = use_gpu and bool(getattr(pycolmap, "has_cuda", False))
