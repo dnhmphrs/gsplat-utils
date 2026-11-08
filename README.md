@@ -48,6 +48,7 @@ gsu geometry --work work --title "Building A" --labels examples/labels.example.j
 
 # or all of the above in one go
 gsu run --work work --video video/input.mp4 --frames 1400
+gsu status --work work                   # what each stage produced
 ```
 
 Outputs land in `work/geometry/`:
@@ -61,9 +62,26 @@ Outputs land in `work/geometry/`:
 | `path.json` | the smoothed walk path (also used by the website's `route` transition) |
 | `occupancy_L*.png` | debug: wall-band points, the path and the detected wall hits per level |
 
-The SVGs import directly into Illustrator/Figma/Inkscape; the diagram is deliberately
-coarse (straight corridor pieces, right angles, one width per piece) so it reads as a
-sign, not as a survey.
+The SVGs import directly into Illustrator/Figma/Inkscape (`iso.svg` is grouped into
+one layer per level, plus `path` and `labels`); the diagram is deliberately coarse
+(straight corridor pieces, right angles, one width per piece) so it reads as a sign,
+not as a survey. Useful knobs for `gsu geometry`:
+
+| flag | effect |
+|---|---|
+| `--title`, `--labels file.json` | caption and named places (see `examples/labels.example.json`; `poses.json` entries are added automatically) |
+| `--explode 2.5` | pull the levels apart vertically in the isometric |
+| `--iso-azimuth -45` | rotate the isometric view (degrees) |
+| `--cutaway 1.2`, `--wall-height 2.6` | wall height in the SVG / in the 3D meshes |
+| `--stairs-style auto|path|simple` | draw stairs along the real flights or as one sloped ribbon |
+| `--no-path` | hide the dashed walk path |
+| `--cell 0.15`, `--max-width 6`, `--wall-bins 2` | occupancy resolution, furthest wall searched, wall-likeness threshold |
+| `--stair-slope 0.22`, `--path-sample 0.25` | stairs detection sensitivity, path resampling step |
+| `--no-manhattan` | keep raw corridor angles instead of snapping to the two dominant directions |
+| `--source splat` | use the trained gaussians instead of the SfM points |
+
+`node scripts/svg2png.cjs work/geometry/iso.svg` rasterises an SVG with headless
+Chromium if you have Playwright installed.
 
 ## Photos instead of video
 
