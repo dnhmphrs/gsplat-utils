@@ -74,8 +74,11 @@ def write_plan_svg(path, diagram: dict, level_id: int | None, bounds: tuple[floa
         if r["kind"] == "stairs" and level_id is not None and level_id not in (r["level_from"], r["level_to"]):
             continue
         if r["kind"] == "stairs" and r.get("atrium"):   # gallery ring first, flights on top
-            for q in r["atrium"].get("ring", []):
-                out.append(_poly(np.array([P(p) for p in q]), fill="#f7f5f0", stroke="#8c8577", stroke_width=0.8))
+            upper_only = r["atrium"].get("ring_levels") == "upper"
+            upper = max(r["level_from"], r["level_to"])
+            if not upper_only or level_id is None or level_id == upper:
+                for q in r["atrium"].get("ring", []):
+                    out.append(_poly(np.array([P(p) for p in q]), fill="#f7f5f0", stroke="#8c8577", stroke_width=0.8))
         fill = PALETTE["stairs"] if r["kind"] == "stairs" else PALETTE["floor"]
         for q in r.get("quads") or [r["outline"]]:
             pts = np.array([P(p) for p in q])
@@ -261,8 +264,8 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             _poly(p2, fill=fill, stroke=stroke, stroke_width=w, stroke_linejoin="round", **extra)
 
     def slab_faces(layer: str, quad_top: np.ndarray, off0: float, off1: float, top_fill: str, thickness: float):
-        """Top face + the two visible side faces of a 4-point slab (l0,l1,r1,r0)."""
-        q = quad_top.copy()
+        """Top face + the visible side faces of a 4-point slab (l0,l1,r1,r0)."""
+        q = np.asarray(quad_top, float).copy()
         offs = np.array([off0, off1, off1, off0])
         q[:, 2] += offs
         bottom = q.copy(); bottom[:, 2] -= thickness
@@ -286,23 +289,32 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
 
     for r in diagram["runs"]:
         layer = run_layer(r)
-        L = np.array(r["left_boundary"]); R = np.array(r["right_boundary"])
-        n = len(L) - 1
+        quads = [np.array(q, float) for q in (r.get("quads") or [])]
+        if not quads:
+            L = np.array(r["left_boundary"]); R = np.array(r["right_boundary"])
+            quads = [np.array([L[j], L[j + 1], R[j + 1], R[j]]) for j in range(len(L) - 1)]
+        n = len(quads)
         if r["kind"] == "stairs":
             o0, o1 = lvl_off(r["level_from"]), lvl_off(r["level_to"])
-            for j in range(n):
-                quad = np.array([L[j], L[j + 1], R[j + 1], R[j]])
-                # winding: left boundary then right reversed is CCW seen from above when the
-                # path runs forward with left on the left-hand side
-                t0, t1 = j / n, (j + 1) / n
-                slab_faces(layer, quad, o0 + (o1 - o0) * t0, o0 + (o1 - o0) * t1, S["stairs_top"], slab)
-                seg_len = np.linalg.norm(L[j + 1, :2] - L[j, :2]); m = int(seg_len / 0.3)
-                for k in range(1, m):
-                    t = k / m
-                    a = quad[0] + (quad[1] - quad[0]) * t; b = quad[3] + (quad[2] - quad[3]) * t
-                    off = o0 + (o1 - o0) * (t0 + (t1 - t0) * t)
-                    pa, da = view.project(a, off); pb, _ = view.project(b, off)
-                    faces.add(layer, float(da[0]) - 0.01, _line(pa[0] * ppm, pb[0] * ppm, stroke=S["tread"], stroke_width=lw * 0.8))
+            z_lo = min(q[:, 2].min() for q in quads); z_hi = max(q[:, 2].max() for q in quads)
+            span = max(z_hi - z_lo, 1e-6)
+
+            def off_at(z):   # exploded offset interpolated by height along the flight
+                t = (z - z_lo) / span if o1 >= o0 else 1.0 - (z - z_lo) / span
+                lo_, hi_ = (o0, o1) if o1 >= o0 else (o1, o0)
+                return lo_ + (hi_ - lo_) * t
+            for quad in quads:
+                offs = np.array([off_at(z) for z in quad[:, 2]])
+                slab_faces(layer, quad, offs[0], offs[1], S["stairs_top"], slab) if np.allclose(offs, offs[0]) else \
+                    slab_faces(layer, quad, offs[0], offs[1], S["stairs_top"], slab)
+                # treads on sloped quads along the walking direction l0 -> l1
+                if abs(quad[1, 2] - quad[0, 2]) > 1e-6:
+                    seg_len = np.linalg.norm(quad[1, :2] - quad[0, :2]); m = int(seg_len / 0.3)
+                    for k in range(1, m):
+                        t = k / m
+                        a = quad[0] + (quad[1] - quad[0]) * t; b = quad[3] + (quad[2] - quad[3]) * t
+                        pa, da = view.project(a, off_at(a[2])); pb, _ = view.project(b, off_at(b[2]))
+                        faces.add(layer, float(da[0]) - 0.01, _line(pa[0] * ppm, pb[0] * ppm, stroke=S["tread"], stroke_width=lw * 0.8))
             if r.get("atrium"):
                 at = r["atrium"]
                 corners = np.array(at["corners"])
@@ -310,15 +322,16 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                 hi_layer = f"level-L{max(r['level_from'], r['level_to'])}" if r["level_to"] >= 0 else layer
                 oz0 = lvl_off(r["level_from"]) if at["z0"] <= at["z1"] else lvl_off(r["level_to"])
                 oz1 = lvl_off(r["level_to"]) if at["z0"] <= at["z1"] else lvl_off(r["level_from"])
-                z_lo, z_hi = min(at["z0"], at["z1"]), max(at["z0"], at["z1"])
-                # gallery ring on both levels (inferred)
-                for z, ly, oz in ((z_lo, lo_layer, oz0), (z_hi, hi_layer, oz1)):
+                z_lo2, z_hi2 = min(at["z0"], at["z1"]), max(at["z0"], at["z1"])
+                ring_levels = ((z_lo2, lo_layer, oz0), (z_hi2, hi_layer, oz1))
+                if at.get("ring_levels") == "upper":
+                    ring_levels = (ring_levels[1],)
+                for z, ly, oz in ring_levels:
                     for q in at.get("ring", []):
                         quad = np.c_[np.array(q), np.full(4, z)]
                         slab_faces(ly, quad, oz, oz, S["ring"], slab)
-                # the open well: wireframe box between the two floors
-                bot = np.c_[corners, np.full(4, z_lo + oz0)]
-                top = np.c_[corners, np.full(4, z_hi + oz1)]
+                bot = np.c_[corners, np.full(4, z_lo2 + oz0)]
+                top = np.c_[corners, np.full(4, z_hi2 + oz1)]
                 pb, db = view.project(bot); pt, dt = view.project(top)
                 all_pts.append(pb); all_pts.append(pt)
                 for k in range(4):
@@ -334,8 +347,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                 faces.add(layer, _quad_depth(d), poly(p2, S["rail"], extra={"fill_opacity": 0.9}))
         else:
             off = lvl_off(r["level"])
-            for j in range(n):
-                quad = np.array([L[j], L[j + 1], R[j + 1], R[j]])
+            for quad in quads:
                 slab_faces(layer, quad, off, off, S["floor_top"], slab)
             for w in (r["walls"] if draw_walls else []):
                 a, b = np.array(w["a"]), np.array(w["b"])
@@ -350,7 +362,6 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                     p2, d = P(quad, off)
                     tone = _side_tone(nrm, view, S["wall_a"], S["wall_b"]) if shade else S["wall_a"]
                     faces.add(layer, _quad_depth(d), poly(p2, tone))
-                    # wall top (thin slab look)
                     th = 0.1
                     top = np.array([[*(pa - nrm * th), z0 + cutaway_height], [*(pb - nrm * th), z0 + cutaway_height],
                                     [*pb, z0 + cutaway_height], [*pa, z0 + cutaway_height]])
@@ -406,10 +417,10 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         if lv_ is None:
             continue
         A_ = np.vstack(chunks)
-        k = int(np.argmin(A_[:, 0]))
-        faces.add("labels", 0.0, _text((A_[k, 0] - fs * 0.5, A_[k, 1] + fs * 1.5), lv_["name"], fs * 0.85,
+        k = int(np.argmin(A_[:, 0]))          # left-most point of the level, tag below-left of it
+        faces.add("labels", 0.0, _text((A_[k, 0] - fs * 0.3, A_[k, 1] + fs * 1.6), lv_["name"], fs * 0.85,
                                        fill=S["muted"], text_anchor="end", font_weight="500"))
-        all_pts.append(np.array([[A_[k, 0] / ppm - fs * 3 / ppm, A_[k, 1] / ppm]]))
+        all_pts.append(np.array([[A_[k, 0] / ppm - fs * 3.5 / ppm, A_[k, 1] / ppm + fs * 2 / ppm]]))
 
     A = np.vstack(all_pts) * ppm
     pad = fs * 3

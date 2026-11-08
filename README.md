@@ -203,12 +203,28 @@ Sub-models: if the walk breaks (blur, a fast turn) COLMAP returns several models
 training) by hand. The GLOMAP mapper (default for video) is fast and keeps weak
 chains together, but drifts in scale on corridors; that is what `rectify` fixes.
 
+## Idealised schematic
+
+```bash
+gsu idealize --work work --title "Building A"            # -> work/geometry/ideal/
+```
+
+Reads the measured `diagram.json` and redraws the same elements as a clean schematic
+on a 0.5 m grid: halls as rectangles, the corridor as a straight slab of standard
+width (`--corridor-width`), each open-well stair as a square well (`--void-side`,
+default the measured median) with three flights of `--flight-width` around it, quarter
+landings and a gallery on the upper level, a right-angled centreline route, Start/End
+and stair labels. Outputs `plan.svg`, `plan_L*.svg`, `iso.svg`, `iso_noroute.svg`,
+`iso_exploded.svg`, `diagram.glb/.obj` and the schematic `diagram.json`. This is the
+drawing to hand to the sign designer; the measured one is the evidence behind it.
+
 ## Example: the sample walk-through
 
 `examples/walkthrough/` holds the diagrams produced from `video/input.mp4` (848x480
 handheld phone video, 145 s): entrance hall, open stair up, a 23 m corridor, open
 stair down, end hall. Scale comes from the 1.5 m camera-height assumption; corridor
-lengths follow the drift-corrected walk.
+lengths follow the drift-corrected walk. `examples/walkthrough/ideal/` is the
+idealised schematic of the same walk.
 
 ## Tips for filming
 

@@ -11,6 +11,7 @@
     gsu poses    --work W ...                          named camera poses for the website
     gsu web      --work W                              static WebGPU site
     gsu run      --work W (--video V | --images DIR)   ingest -> sfm -> align -> geometry
+    gsu idealize --work W                              clean schematic version of the diagram
     gsu status   --work W                              what exists, key numbers
 """
 from __future__ import annotations
@@ -104,6 +105,14 @@ def cmd_sfm(a: argparse.Namespace) -> None:
         mapper=a.mapper, preset=a.preset, focal_px=a.focal, intrinsics_prior=a.intrinsics_prior,
         verbose=a.verbose, keep_database=a.keep_database,
     )
+
+
+def cmd_idealize(a: argparse.Namespace) -> None:
+    from .geometry.idealize import IdealConfig, run_idealize
+
+    cfg = IdealConfig(grid=a.grid, corridor_width=a.corridor_width, flight_width=a.flight_width, void_side=a.void_side,
+                      explode=a.explode, title=a.title, show_path=a.show_path, iso_azimuth=a.iso_azimuth)
+    run_idealize(Workspace(a.work), cfg, diagram_path=a.diagram, out_dir=a.out)
 
 
 def cmd_status(a: argparse.Namespace) -> None:
@@ -347,6 +356,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--window", type=float, default=4.0, help="time window (s) for the local floor-distance scale")
     p.add_argument("--no-drift", action="store_true", help="skip the scale-drift correction")
     p.set_defaults(fn=cmd_rectify)
+    p = sub.add_parser("idealize", help="clean schematic (grid-snapped halls, corridor, open-well stairs) from diagram.json")
+    _add_work(p)
+    p.add_argument("--diagram", type=Path, default=None, help="diagram.json to idealise (default work/geometry/diagram.json)")
+    p.add_argument("--out", type=Path, default=None, help="output folder (default work/geometry/ideal)")
+    p.add_argument("--grid", type=float, default=0.5)
+    p.add_argument("--corridor-width", type=float, default=2.0)
+    p.add_argument("--flight-width", type=float, default=1.25)
+    p.add_argument("--void-side", type=float, default=None, help="side of the stair wells (default: measured median)")
+    p.add_argument("--explode", type=float, default=0.0)
+    p.add_argument("--iso-azimuth", type=float, default=-45.0)
+    p.add_argument("--no-path", dest="show_path", action="store_false")
+    p.add_argument("--title", default=None)
+    p.set_defaults(fn=cmd_idealize)
     p = sub.add_parser("status", help="summarise what each stage produced"); _add_work(p); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("use-model", help="promote a COLMAP sub-model (e.g. colmap/sparse/models/3) to the workspace model")
     _add_work(p); p.add_argument("--model", required=True, type=Path); p.add_argument("--no-undistort", action="store_true")
