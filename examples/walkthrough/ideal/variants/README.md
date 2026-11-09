@@ -1,10 +1,11 @@
 # Route to G29 — variants and critique
 
-All in the locked style (black line on white, numbered markers, key below) and the locked
-geometry: both stairs anticlockwise, three flights up, a full turn of four flights down,
-then straight off the landing into the antechamber while the stair carries on down one
-more flight. `contact_sheet.png` shows them side by side; each `*.svg` is editable
-(layers per level, stairs, path, labels, key).
+All in the locked style (black line on white, numbered markers, key below; hidden edges
+of the stairs as light dashed lines) and the locked geometry: both stairs anticlockwise,
+three flights up, the bridge in line with the top of each stair (no dog-leg landings), a
+full turn of four flights down, then straight off the landing into the antechamber.
+`contact_sheet.png` shows them side by side; each `*.svg` is editable (layers per level,
+stairs, hidden lines, path, labels, key).
 
 Made with `python scripts/make_variants.py --work work --out examples/walkthrough/ideal/variants`.
 
@@ -23,7 +24,7 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 | file | note |
 |---|---|
 | g1_wells_measured | each stair its own well: the second well is the narrow 1.5 × 3 m one the reconstruction found, which makes its short flights steep |
-| g2_exit_one_flight_down | the earlier reading of the footage: off after one flight into a room at the landing level, stair continuing three more |
+| g2_exit_one_flight_down | the earlier reading of the footage: off after one flight into a room at the landing level, with `--continue` drawing the stair carrying on three more |
 | g3_corridor_2.0m | a wider corridor than the landings; the T-junction at the first stair then needs a step in the outline |
 | g4_flights_1.5m | wider flights and landings (corridor follows); bigger stairs, less corridor |
 | g5_mid_corridor_4_steps | the four steps up half-way along the corridor (66 s in the video) |
@@ -31,21 +32,27 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 | g7_wells_4.5m | bigger wells: more legible stairs, less true |
 | g8_no_route | structure only, for a version where the route is added by hand |
 | g9_foyer_beside | halls as separate rooms beside the stairs: the earlier, weaker reading |
+| g10_landing_L | the previous reading of the bridge: it meets the near corner of each stair and the top landing runs the full side as an L |
+| g11_no_hidden_lines | hidden edges left out: the two foreshortened flights of the second stair fall back to a fan of plates |
+| g12_hidden_lines_all | hidden edges of the slabs too (under the bridge, under the stairs): more information, more clutter |
 
 ## Critique of the current design
 * **A full-turn stair always has two flights that foreshorten.** At a 25° eye point a
   flight descending away from the viewer shows only slivers of its treads (the risers face
-  away), so it reads as a fan of plates. At −60° those are the third and fourth flights of
-  the second stair, drawn behind the two that read clearly; the route on them is hidden
-  where the nearer treads cover it, which is correct but busy. `a4` (−75°) or `a6` (30°)
-  trade composition for a clearer second stair.
+  away). At −60° those are the third and fourth flights of the second stair, drawn behind
+  the two that read clearly. The hidden-line dashes now show the covered tread edges, so
+  the flights read as stairs rather than a fan of plates (`g11` shows the difference);
+  `a4` (−75°) or `a6` (30°) still trade composition for a clearer second stair.
 * **One line weight for everything.** Silhouettes (slab edges) should be heavier than
   internal edges (risers), the route a third weight. The layers in the SVG allow this in
   Illustrator; the renderer could learn it.
 * **The antechamber is a box.** Its 9 × 4 m comes from the measured hall; where the G29
   door actually is was not filmed, so the marker sits at the end of a straight run off the
-  landing. One extra flight stands for "the stair carries on down"; how far it goes is
-  unknown.
+  landing. The stair carrying on below it is not drawn (`--continue 0,1` adds a flight).
+* **The bridge passes over the foot of the first stair.** With the bridge in line with
+  the top of the flights, the upper walkway sits above the first flight's landing, so the
+  route from Start runs under it for a metre before the first step; true to an open-well
+  stair, but the Start side of the drawing is busier than before.
 * **Scale is a prior, not a measurement**: lengths follow the 1.5 m camera-height
   assumption, the 3.5 m wells are the median of two very different measured wells, and the
   storey height (4.25 m) comes from the drift-corrected climb.

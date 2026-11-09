@@ -39,6 +39,9 @@ class IdealConfig:
     exit_after: list = field(default_factory=list)   # per stair: flights the route takes before leaving (0 = all)
     stair_flights: list = field(default_factory=list)  # per stair: flights per storey (0 = from the height / --flights)
     continue_flights: list = field(default_factory=list)  # per stair: extra flights drawn beyond the route's exit
+    top_landing: str = "straight"     # "straight": the corridor lines up with the top of the flight it meets;
+                                      # "L": it meets the near corner and the landing runs the full side
+    hidden_lines: str = "stairs"      # hidden edges as light dashed lines: "stairs" | "all" | "none"
 
     def __post_init__(self):
         if self.corridor_width is None:
@@ -193,6 +196,11 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
                 e.centre = nb.centre.copy(); e.centre[k] += sign * ext / 2
                 e.base_of = nb
                 t = nb.centre.copy(); t[k] = nb.centre[k] + sign * (nb.size[k] / 2 + ext / 2)
+                if e is els[0]:
+                    # the Start sits in line with the foot of the first flight, so the route walks
+                    # straight onto the stair instead of along the side of the well
+                    side_pt = nb.centre.copy(); side_pt[k] = nb.centre[k] + sign * nb.size[k]
+                    t[1 - k] = _corner_xy(nb, _first_corner(nb, side_pt), cfg.flight_width)[1 - k]
                 e.term = t
     for e in els:
         if e.kind == "corridor":
@@ -223,7 +231,10 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
             else:
                 side = 1 if d[0] > 0 else 3
             c0, c1 = corners_of_side(side, e.sense)
-            corner = c0 if role == "entry" else c1
+            if cfg.top_landing == "L":
+                corner = c0 if role == "entry" else c1        # arrive at the near corner, walk the side
+            else:
+                corner = c1 if role == "entry" else c0        # in line with the flight: no walk along the side
             k = 1 if side in (1, 3) else 0                    # axis along the side
             sgn = corner_sign[corner][k]
             half_c = cfg.corridor_width / 2
@@ -267,6 +278,19 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
             # the other end shares the same coordinate on the other axis
             q = getattr(e, "b" if end == "a" else "a").copy(); q[other] = p[other]
             setattr(e, "b" if end == "a" else "a", q)
+
+
+def _corner_xy(block: Element, corner: int, w: float) -> np.ndarray:
+    """Centre of a corner landing square: 0=SW 1=SE 2=NE 3=NW."""
+    sgn = {0: (-1, -1), 1: (1, -1), 2: (1, 1), 3: (-1, 1)}[corner]
+    return block.centre + np.array(sgn, float) * (block.size / 2 - w / 2)
+
+
+def _first_corner(block: Element, arrive_from: np.ndarray) -> int:
+    """Corner the first flight leaves from when you arrive on the side facing `arrive_from`
+    and walk it in the block's turning sense."""
+    side = _side_of(block, np.asarray(arrive_from, float))
+    return _corners_of_side(side, block.sense)[1]
 
 
 def _rect(c: np.ndarray, size: np.ndarray, z: float) -> np.ndarray:
@@ -527,12 +551,16 @@ def place_exit_hall(stair: Element, hall: Element, entry: np.ndarray, corridor_f
     exit_corner = _corners_of_side(order[n_route - 1], stair.sense)[1]
     sides_of_corner = {0: (0, 3), 1: (0, 1), 2: (1, 2), 3: (2, 3)}[exit_corner]   # SW: S,W ; SE: S,E ; NE: E,N ; NW: N,W
     normals = {0: np.array([0, -1.0]), 1: np.array([1.0, 0]), 2: np.array([0, 1.0]), 3: np.array([-1.0, 0])}
-    away = stair.centre - np.asarray(corridor_from, float)          # direction away from where the corridor is
-    if corridor_axis in ("x", "y"):
-        away[0 if corridor_axis == "x" else 1] = 0.0               # only the lateral offset of the corridor counts
-    if np.linalg.norm(away) < 1e-6:
-        away = normals[sides_of_corner[1]]
-    side = max(sides_of_corner, key=lambda sd: float(normals[sd] @ away))
+    free = [sd for sd in sides_of_corner if sd != landing_side]     # not the side the corridor arrives on
+    if len(free) == 1:
+        side = free[0]
+    else:
+        away = stair.centre - np.asarray(corridor_from, float)      # direction away from where the corridor is
+        if corridor_axis in ("x", "y"):
+            away[0 if corridor_axis == "x" else 1] = 0.0           # only the lateral offset of the corridor counts
+        if np.linalg.norm(away) < 1e-6:
+            away = normals[free[-1]]
+        side = max(free, key=lambda sd: float(normals[sd] @ away))
     n = normals[side]
     k = 0 if side in (1, 3) else 1
     hall.size = np.array([max(hall.size[0], cfg.hall_min), max(hall.size[1], cfg.hall_min)])
@@ -619,6 +647,7 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                 k = int(np.argmax(np.abs(d_)))
                 sign = 1 if d_[k] >= 0 else -1
                 edge = nb.centre.copy(); edge[k] = nb.centre[k] + sign * nb.size[k] / 2
+                edge[1 - k] = float(e.term[1 - k])          # same row as the Start/End point
                 if prev_ is None and entry_rise > 0:
                     # lower entrance foyer + straight flight up to the stair base (which stays at level z)
                     ext = e.size[k] - nb.size[k]
@@ -713,6 +742,7 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
             if prev_ is not None and prev_.base_of is e:
                 entry = e.centre.copy(); dd = prev_.term - e.centre; kk = int(np.argmax(np.abs(dd)))
                 entry[kk] = e.centre[kk] + (1 if dd[kk] >= 0 else -1) * e.size[kk] / 2
+                entry[1 - kk] = _corner_xy(e, _first_corner(e, entry), cfg.flight_width)[1 - kk]
             exit_ = next_.centre if next_ is not None else None
             if next_ is not None and next_.kind == "corridor":
                 exit_ = next_.a
@@ -747,7 +777,7 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
             for p in [route[-1]] + gallery:
                 path_pts.append(np.r_[p[:2], p[2] + cam_h]); path_lv.append(-2 if exit_level_z is not None else e.level_to)
             # marker where you start climbing / descending: the entry corner of the flights
-            start_pt = route[2] if (entry is not None and len(route) > 2) else route[0]
+            start_pt = route[3] if (entry is not None and len(route) > 3) else route[0]
             labels.append({"text": f"Stairs {'up' if z1 > z0 else 'down'}", "xyz": [float(start_pt[0]), float(start_pt[1]), float(z0)],
                            "level": int(e.level_from), "floor_z": float(z0), "kind": "stairs"})
     # -2 marks route points on a landing-level hall created after a part-way exit
@@ -822,7 +852,7 @@ def run_idealize(ws: Workspace, cfg: IdealConfig, diagram_path: os.PathLike | st
     from .svg import THEMES
 
     view = AxoView(cfg.iso_azimuth, cfg.iso_elevation, explode_m=cfg.explode)
-    kw = dict(title=cfg.title, slab=cfg.slab, label_style=cfg.label_style)
+    kw = dict(title=cfg.title, slab=cfg.slab, label_style=cfg.label_style, hidden_lines=cfg.hidden_lines)
     write_axo_svg(out / "iso.svg", ideal, view, show_path=cfg.show_path, theme=cfg.theme, **kw)
     write_axo_svg(out / "iso_noroute.svg", ideal, view, show_path=False, theme=cfg.theme, **kw)
     if len(ideal["levels"]) > 1 and cfg.explode == 0:

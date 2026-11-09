@@ -40,6 +40,9 @@ VARIANTS: list[tuple[str, dict, dict]] = [
     ("g7_wells_4.5m", {"void_side": 4.5}, {}),
     ("g8_no_route", {"show_path": False}, {}),
     ("g9_foyer_beside", {"foyer": "beside"}, {}),
+    ("g10_landing_L", {"top_landing": "L"}, {}),
+    ("g11_no_hidden_lines", {"hidden_lines": "none"}, {}),
+    ("g12_hidden_lines_all", {"hidden_lines": "all"}, {}),
 ]
 
 
@@ -57,9 +60,9 @@ def main() -> None:
     d = json.loads(Path(src).read_text())
     a.out.mkdir(parents=True, exist_ok=True)
     # the locked design: both stairs anticlockwise, 3 then 4 flights, full turn on the second
-    # stair before the antechamber, one more flight drawn as the stair carries on down
+    # stair before the antechamber, the bridge in line with the top of each stair
     base = IdealConfig(theme=a.theme, title=a.title, end_label=a.end_label, all_themes=False,
-                       stair_sense=["ccw", "ccw"], stair_flights=[3, 4], exit_after=[0, 4], continue_flights=[0, 1])
+                       stair_sense=["ccw", "ccw"], stair_flights=[3, 4], exit_after=[0, 4])
     made = []
     for name, cfg_over, view_over in VARIANTS:
         if a.only and name not in a.only:
@@ -71,7 +74,8 @@ def main() -> None:
             setattr(view, k, v)
         svg = a.out / f"{name}.svg"
         write_axo_svg(svg, ideal, view, title=f"{a.title}  ·  {name.split('_', 1)[1].replace('_', ' ')}",
-                      show_path=cfg.show_path, theme=a.theme, label_style=cfg.label_style, slab=cfg.slab)
+                      show_path=cfg.show_path, theme=a.theme, label_style=cfg.label_style, slab=cfg.slab,
+                      hidden_lines=cfg.hidden_lines)
         made.append(svg)
         print("wrote", svg)
     # PNG renders + contact sheet (optional)

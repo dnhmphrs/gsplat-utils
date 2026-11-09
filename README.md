@@ -231,15 +231,18 @@ that many flights; 0 = all), `--continue 0,1` (extra flights drawn beyond the ex
 the stair carries on), `--wells measured` (each stair its own well size), `--mid-steps
 0.55:4` (a short flight inside the corridor), `--entry-steps 8` (a lower entrance foyer
 with a straight flight up to the stair), `--corridor-width`, `--flight-width`. A corridor
-meeting a stair is placed flush with the block at the start of the landing side, so the
-top landing is a regular L and the first flight leaves from its far corner. A hall
-entered from a stair is placed flush with the block at the exit landing, so you step
-straight off the stair into it; if the exit is between storeys the hall is drawn at that
-landing level. The sample sign was made with
+meeting a stair lines up with the flight it meets (`--landing straight`, the default: you
+walk off the top of one stair straight along the bridge and onto the first flight of the
+next, no dog-leg) or meets the near corner with the landing running the full side
+(`--landing L`). A hall entered from a stair sits flush with the block at the exit
+landing, on a side the stair was not entered from, so you step straight off the stair
+into it; if the exit is between storeys the hall is drawn at that landing level. The
+Start/End point of a base slab sits in line with the foot of the first flight. The sample
+sign was made with
 
 ```bash
 gsu idealize --theme mono --title "Route to G29" --end-label G29 \
-    --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4 --continue 0,1
+    --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4
 ```
 
 Drawing rules: touching coplanar surfaces (slabs, landings, the top tread of a flight)
@@ -247,7 +250,10 @@ are merged into one outline; the surfaces in a level are ordered for drawing by
 separating planes (exact for the axis-aligned boxes used here), so touching steps,
 landings and route never paint over each other; the route is drawn as individual dashes
 fitted to each straight run (a run starts and ends with a full dash, so corners stay
-solid) and disappears where it passes under a higher surface.
+solid) and disappears where it passes under a higher surface. Edges of the stairs that
+lie behind or beneath another surface are drawn as light dashed lines, the architect's
+hidden-line convention (`--hidden-lines stairs|all|none`); visibility comes from casting
+a ray from points along each edge towards the viewer through every box.
 `python scripts/make_variants.py --work work --out variants/` renders a labelled contact
 sheet of angle and geometry variants. This is the drawing to hand to the sign designer;
 the measured one is the evidence behind it.

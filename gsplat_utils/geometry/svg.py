@@ -190,27 +190,27 @@ THEMES = {
     "light": dict(bg="#ffffff", line="#1f1f1f", line_w=1.0, floor_top="#f3f1ec", floor_side_a="#d7d3ca",
                   floor_side_b="#c6c1b7", stairs_top="#ebe7de", riser="#d3ccbe", ring="#f7f5f0", void="#4a4a4a",
                   path="#d9482b", label="#111111", muted="#6f6f6f", title="#111111", key_line="#d9d9d9",
-                  marker_fill="#d9482b", marker_text="#ffffff", tread="#8f8a80", rail="#dcd8cf"),
+                  marker_fill="#d9482b", marker_text="#ffffff", tread="#8f8a80", rail="#dcd8cf", hidden="#a39e94"),
     "dark": dict(bg="#121212", line="#f2f2f2", line_w=1.0, floor_top="#1b1b1b", floor_side_a="#262626",
                  floor_side_b="#202020", stairs_top="#222222", riser="#2e2e2e", ring="#181818", void="#8c8c8c",
                  path="#ff7a4d", label="#f2f2f2", muted="#9a9a9a", title="#ffffff", key_line="#333333",
-                 marker_fill="#ff7a4d", marker_text="#121212", tread="#8a8a8a", rail="#2e2e2e"),
+                 marker_fill="#ff7a4d", marker_text="#121212", tread="#8a8a8a", rail="#2e2e2e", hidden="#5d5d5d"),
     "blueprint": dict(bg="#163a7a", line="#eaf2ff", line_w=1.0, floor_top="#1d4a96", floor_side_a="#2a5cb0",
                       floor_side_b="#1a418a", stairs_top="#2457a8", riser="#2f66bd", ring="#1b4590", void="#9ec1ff",
                       path="#ffd166", label="#ffffff", muted="#bcd0f5", title="#ffffff", key_line="#3b65b5",
-                      marker_fill="#ffd166", marker_text="#163a7a", tread="#9ec1ff", rail="#2f66bd"),
+                      marker_fill="#ffd166", marker_text="#163a7a", tread="#9ec1ff", rail="#2f66bd", hidden="#7f9fd6"),
     "mono": dict(bg="#ffffff", line="#000000", line_w=1.1, floor_top="#ffffff", floor_side_a="#ffffff",
                  floor_side_b="#ffffff", stairs_top="#ffffff", riser="#ffffff", ring="#ffffff", void="#000000",
                  path="#000000", label="#000000", muted="#555555", title="#000000", key_line="#000000",
-                 marker_fill="#000000", marker_text="#ffffff", tread="#000000", rail="#ffffff"),
+                 marker_fill="#000000", marker_text="#ffffff", tread="#000000", rail="#ffffff", hidden="#8c8c8c"),
     "paper": dict(bg="#f4efe6", line="#3b3128", line_w=1.0, floor_top="#efe8da", floor_side_a="#d9cfbc",
                   floor_side_b="#cbbfa9", stairs_top="#e6dcc8", riser="#d4c7ae", ring="#f1ebdf", void="#6b5d4f",
                   path="#b8432f", label="#2b241e", muted="#7a6d60", title="#2b241e", key_line="#cdbfa8",
-                  marker_fill="#b8432f", marker_text="#ffffff", tread="#8b7d6b", rail="#d9cfbc"),
+                  marker_fill="#b8432f", marker_text="#ffffff", tread="#8b7d6b", rail="#d9cfbc", hidden="#a89c8a"),
     "slate": dict(bg="#1e2430", line="#e6ebf2", line_w=1.0, floor_top="#2a3140", floor_side_a="#363e4f",
                   floor_side_b="#2f3747", stairs_top="#323a4a", riser="#3d465a", ring="#262d3b", void="#8fa0bb",
                   path="#5ad1b9", label="#e6ebf2", muted="#9aa7bb", title="#ffffff", key_line="#3d465a",
-                  marker_fill="#5ad1b9", marker_text="#1e2430", tread="#8fa0bb", rail="#3d465a"),
+                  marker_fill="#5ad1b9", marker_text="#1e2430", tread="#8fa0bb", rail="#3d465a", hidden="#6e7a90"),
 }
 AXO_STYLE = THEMES["light"]
 
@@ -262,6 +262,8 @@ class _Item:
     svg: str
     members: list           # [(box3d, screen_bbox)] of the solids this fragment draws
     sbox: tuple | None      # screen bbox of all members
+    edges: list             # [(a3, b3)] top-face edges, for the hidden-line pass
+    kind: str               # "stairs" | "flat" | ""
 
 
 class _Faces:
@@ -275,7 +277,7 @@ class _Faces:
         self.w = view.axes()[2]
         self.layers: dict[str, list[_Item]] = {}
 
-    def add(self, layer: str, depth: float, svg: str, boxes=None) -> None:
+    def add(self, layer: str, depth: float, svg: str, boxes=None, edges=None, kind: str = "") -> None:
         members = []
         for bx in boxes or []:
             x0, y0, z0, x1, y1, z1 = bx
@@ -287,7 +289,81 @@ class _Faces:
         if members:
             arr = np.array([m[1] for m in members])
             sbox = (float(arr[:, 0].min()), float(arr[:, 1].min()), float(arr[:, 2].max()), float(arr[:, 3].max()))
-        self.layers.setdefault(layer, []).append(_Item(depth, svg, members, sbox))
+        self.layers.setdefault(layer, []).append(_Item(depth, svg, members, sbox, list(edges or []), kind))
+
+    def hidden_segments(self, kinds: tuple = ("stairs",), step: float = 0.03):
+        """Parts of the items' top-face edges that lie behind some solid, as 3D segments.
+        A point is hidden when the ray from it towards the viewer passes through a box
+        (slab test); sampled along each edge and refined by bisection at the ends."""
+        w = np.asarray(self.w, float)
+        items = [it for lst in self.layers.values() for it in lst]
+        allboxes = [(np.array(bx, float), sb, id(it)) for it in items for bx, sb in it.members]
+        if not allboxes:
+            return []
+        B = np.array([b[0] for b in allboxes])            # (M, 6)
+        SB = np.array([b[1] for b in allboxes])           # (M, 4) screen bboxes
+        owner = np.array([b[2] for b in allboxes])
+        lo, hi = B[:, :3], B[:, 3:]
+
+        def hidden_mask(P: np.ndarray, sel: np.ndarray) -> np.ndarray:
+            """P: (N,3) points, sel: indices of candidate boxes -> (N,) bool."""
+            if len(sel) == 0:
+                return np.zeros(len(P), bool)
+            l_, h_ = lo[sel], hi[sel]                                      # (M,3)
+            s_in = np.full((len(P), len(sel)), -np.inf); s_out = np.full((len(P), len(sel)), np.inf)
+            for k in range(3):
+                if abs(w[k]) < 1e-9:
+                    inside = (P[:, None, k] >= l_[None, :, k] - 1e-9) & (P[:, None, k] <= h_[None, :, k] + 1e-9)
+                    s_out = np.where(inside, s_out, -np.inf)
+                    continue
+                s1 = (l_[None, :, k] - P[:, None, k]) / w[k]; s2 = (h_[None, :, k] - P[:, None, k]) / w[k]
+                s_in = np.maximum(s_in, np.minimum(s1, s2)); s_out = np.minimum(s_out, np.maximum(s1, s2))
+            hit = np.maximum(s_in, 0.0) < s_out - 1e-6
+            return hit.any(axis=1)
+
+        out = []
+        for it in items:
+            if it.kind not in kinds or not it.edges:
+                continue
+            for a3, b3 in it.edges:
+                a3 = np.asarray(a3, float); b3 = np.asarray(b3, float)
+                L = float(np.linalg.norm(b3 - a3))
+                if L < 1e-6:
+                    continue
+                p2, _ = self.view.project(np.vstack([a3, b3]))
+                eb = (p2[:, 0].min(), p2[:, 1].min(), p2[:, 0].max(), p2[:, 1].max())
+                cand = np.where((owner != id(it)) & (SB[:, 0] < eb[2] + 1e-6) & (SB[:, 2] > eb[0] - 1e-6) &
+                                (SB[:, 1] < eb[3] + 1e-6) & (SB[:, 3] > eb[1] - 1e-6))[0]
+                if len(cand) == 0:
+                    continue
+                n = max(2, int(np.ceil(L / step)) + 1)
+                ts = np.linspace(0.0, 1.0, n)
+                P = a3[None, :] + (b3 - a3)[None, :] * ts[:, None]
+                hm = hidden_mask(P, cand)
+                if not hm.any():
+                    continue
+
+                def refine(t_vis, t_hid):
+                    for _ in range(10):
+                        tm = 0.5 * (t_vis + t_hid)
+                        if hidden_mask((a3 + (b3 - a3) * tm)[None, :], cand)[0]:
+                            t_hid = tm
+                        else:
+                            t_vis = tm
+                    return t_hid
+                i = 0
+                while i < n:
+                    if not hm[i]:
+                        i += 1; continue
+                    j = i
+                    while j + 1 < n and hm[j + 1]:
+                        j += 1
+                    t0 = ts[i] if i == 0 else refine(ts[i - 1], ts[i])
+                    t1 = ts[j] if j == n - 1 else refine(ts[j + 1], ts[j])
+                    if t1 - t0 > 1e-4:
+                        out.append((a3 + (b3 - a3) * t0, a3 + (b3 - a3) * t1))
+                    i = j + 1
+        return out
 
     def _relation(self, A: _Item, B: _Item) -> int:
         if A.sbox is None or B.sbox is None or not _sb_overlap(A.sbox, B.sbox):
@@ -363,7 +439,7 @@ def _side_tone(normal_xy: np.ndarray, view: AxoView, a: str, b: str) -> str:
 def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.2, title: str | None = None,
                   shade: bool = True, stairs_wall_height: float = 0.9, slab: float = 0.15,
                   show_path: bool = True, draw_walls: bool = False, theme: str = "light",
-                  label_style: str = "inline", path_on_stairs: bool = True) -> None:
+                  label_style: str = "inline", path_on_stairs: bool = True, hidden_lines: str = "stairs") -> None:
     """Clean isometric building diagram: floor slabs, stairs (sloped slabs with
     tread lines, or real steps when a run carries per-quad thickness), the
     walk path, labels inline or as numbered markers with a key. Grouped per
@@ -418,7 +494,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             kw.update(extra)
         return _poly(p2, **kw)
 
-    def slab_faces(layer, quad_top, offs, top_fill, thickness, side_fills=None):
+    def slab_faces(layer, quad_top, offs, top_fill, thickness, side_fills=None, kind="flat"):
         """Top face + the visible side faces of a 4-point slab (l0,l1,r1,r0); `offs`
         are per-vertex exploded offsets."""
         q = np.asarray(quad_top, float).copy()
@@ -442,7 +518,8 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             parts.append(poly(p2s * ppm, _side_tone(n, view, sa, sb)))
         box = (float(q[:, 0].min()), float(q[:, 1].min()), float(bottom[:, 2].min()),
                float(q[:, 0].max()), float(q[:, 1].max()), float(q[:, 2].max()))
-        faces.add(layer, _quad_depth(d) - 0.03, "".join(parts), boxes=[box])
+        edges = [(q[k].copy(), q[(k + 1) % 4].copy()) for k in range(4)]
+        faces.add(layer, _quad_depth(d) - 0.03, "".join(parts), boxes=[box], edges=edges, kind=kind)
 
     # coplanar axis-aligned flat surfaces are merged per height so touching
     # slabs, landings and walkways share one outline (no borders inside)
@@ -453,8 +530,11 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             return False
         key = (round(float(quad[0, 2]), 3), round(float(off), 3), round(float(thickness), 3))
         g = flat_groups.setdefault(key, {"rects": [], "layer": layer, "rank": layer_rank, "fill": fill,
-                                         "z": float(quad[0, 2]), "off": float(off), "thickness": float(thickness)})
+                                         "z": float(quad[0, 2]), "off": float(off), "thickness": float(thickness),
+                                         "stairs": False})
         g["rects"].append(rect_of(quad))
+        if fill == S["stairs_top"]:
+            g["stairs"] = True
         if layer_rank > g["rank"]:
             g["layer"], g["rank"], g["fill"] = layer, layer_rank, fill
         return True
@@ -500,7 +580,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                     if collect_flat(quad, float(offs[0]), target_layer, layer_rank_of(target_layer), th, S["stairs_top"]):
                         continue
                 slab_faces(layer, quad, offs, S["stairs_top"], th,
-                           side_fills=(S["riser"], S["riser"]) if is_steps else None)
+                           side_fills=(S["riser"], S["riser"]) if is_steps else None, kind="stairs")
                 if not is_steps and abs(quad[1, 2] - quad[0, 2]) > 1e-6:   # tread lines on sloped slabs
                     seg_len = np.linalg.norm(quad[1, :2] - quad[0, :2]); m = int(seg_len / 0.3)
                     for k in range(1, m):
@@ -593,7 +673,9 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                 p2s, _ = view.project(side)
                 parts.append(poly(p2s * ppm, _side_tone(nrm, view, S["floor_side_a"], S["floor_side_b"])))
         boxes = [(x0, y0, z - g["thickness"], x1, y1, z) for (x0, y0, x1, y1) in g["rects"]]
-        faces.add(g["layer"], depth - 0.03, "".join(parts), boxes=boxes)
+        edges = [(np.r_[lp[k], z], np.r_[lp[(k + 1) % len(lp)], z]) for lp in loops for k in range(len(lp))]
+        faces.add(g["layer"], depth - 0.03, "".join(parts), boxes=boxes, edges=edges,
+                  kind="stairs" if g["stairs"] else "flat")
 
     # path: every dash is its own short solid line placed in the level / stairs layer of
     # its height and ordered with the geometry, so a higher surface drawn later hides the
@@ -730,8 +812,16 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             return 1e9
         zf = levels.get(lid, {}).get("floor_z", 0.0)
         return zf + (0.001 if kind == "stairs" else 0.0)
-    order_layers = sorted([k for k in faces.layers if k not in ("path", "labels")], key=layer_height)
-    order_layers += ["path", "labels"]
+    # hidden edges of the stairs (treads, landings) as light dashed lines: the architect's
+    # convention for what lies behind or beneath another surface
+    if hidden_lines != "none":
+        kinds = ("stairs",) if hidden_lines == "stairs" else ("stairs", "flat")
+        for a3, b3 in faces.hidden_segments(kinds):
+            p2, _ = view.project(np.vstack([a3, b3]))
+            faces.add("hidden", 0.0, _line(p2[0] * ppm, p2[1] * ppm, stroke=S["hidden"], stroke_width=lw * 0.55,
+                                           stroke_dasharray=f"{lw * 2.2:.2f} {lw * 2.2:.2f}", stroke_linecap="butt"))
+    order_layers = sorted([k for k in faces.layers if k not in ("path", "labels", "hidden")], key=layer_height)
+    order_layers += ["hidden", "path", "labels"]
     out += faces.emit(order_layers)
     if title:
         out.append(_text((x0 + fs, y0 - fs * 1.1), title, fs * 1.3, fill=S["title"], font_weight="700"))

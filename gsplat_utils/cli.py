@@ -120,7 +120,8 @@ def cmd_idealize(a: argparse.Namespace) -> None:
                       stair_sense=[x.strip() for x in a.stair_sense.split(",") if x.strip()],
                       exit_after=[int(x) for x in a.exit_after.split(",") if x.strip()],
                       stair_flights=[int(x) for x in a.stair_flights.split(",") if x.strip()],
-                      continue_flights=[int(x) for x in a.continue_flights.split(",") if x.strip()])
+                      continue_flights=[int(x) for x in a.continue_flights.split(",") if x.strip()],
+                      top_landing=a.top_landing, hidden_lines=a.hidden_lines)
     run_idealize(Workspace(a.work), cfg, diagram_path=a.diagram, out_dir=a.out)
 
 
@@ -404,6 +405,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--stair-flights", default="", help="per stair: flights per storey, e.g. 3,4 (0 = default)")
     p.add_argument("--continue", dest="continue_flights", default="",
                    help="per stair: extra flights drawn beyond where the route leaves, e.g. 0,1")
+    p.add_argument("--hidden-lines", choices=["stairs", "all", "none"], default="stairs",
+                   help="draw edges hidden behind other surfaces as light dashed lines: of the stairs only, of everything, or not at all")
+    p.add_argument("--landing", dest="top_landing", choices=["straight", "L"], default="straight",
+                   help="how a corridor meets the top of a stair: in line with the flight (straight) or at the near corner with the landing running the full side (L)")
     p.set_defaults(fn=cmd_idealize)
     p = sub.add_parser("status", help="summarise what each stage produced"); _add_work(p); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("use-model", help="promote a COLMAP sub-model (e.g. colmap/sparse/models/3) to the workspace model")
