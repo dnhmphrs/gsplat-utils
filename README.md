@@ -226,7 +226,12 @@ lines, `blueprint`, `mono` line art, `paper`, `slate`; `--theme` picks the main 
 (each stair its own well size), `--flights 2` (dog-leg), `--gallery upper|both|none`,
 `--mid-steps 0.55:4` (a short flight inside the corridor), `--entry-steps 8` (a lower
 entrance foyer with a straight flight up to the stair), `--stair-sense ccw,cw` (turn
-direction per stair), `--corridor-width`, `--flight-width`. Touching coplanar surfaces are
+direction per stair), `--exit-after 0,1` (the route leaves a stair after that many flights
+into the next space, which is then drawn at that landing level while the stair continues),
+`--corridor-width`, `--flight-width`. A corridor meeting a stair is placed flush with the
+block at the start of the landing side, so the top landing is a regular L and the first
+flight leaves from its far corner. The sample sign was made with
+`gsu idealize --theme mono --title "Route to G29" --end-label G29 --stair-sense ccw,ccw --exit-after 0,1`. Touching coplanar surfaces are
 merged into one outline, and the route is drawn in depth order so it disappears where it
 passes under a higher floor.
 `python scripts/make_variants.py --work work --out variants/` renders a labelled contact

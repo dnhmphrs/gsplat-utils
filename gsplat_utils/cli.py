@@ -117,7 +117,8 @@ def cmd_idealize(a: argparse.Namespace) -> None:
                       gallery=a.gallery, void_lines=a.void_lines, iso_elevation=a.iso_elevation,
                       mid_steps=[(float(x.split(":")[0]), int(x.split(":")[1])) for x in a.mid_steps],
                       entry_steps=a.entry_steps,
-                      stair_sense=[x.strip() for x in a.stair_sense.split(",") if x.strip()])
+                      stair_sense=[x.strip() for x in a.stair_sense.split(",") if x.strip()],
+                      exit_after=[int(x) for x in a.exit_after.split(",") if x.strip()])
     run_idealize(Workspace(a.work), cfg, diagram_path=a.diagram, out_dir=a.out)
 
 
@@ -396,6 +397,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="straight flight of N steps from a lower entrance foyer up to the first stair")
     p.add_argument("--stair-sense", default="",
                    help="turn direction per stair in route order, e.g. ccw,cw (default: as walked)")
+    p.add_argument("--exit-after", default="",
+                   help="per stair: flights the route takes before leaving into the next space, e.g. 0,1 (0 = all)")
     p.set_defaults(fn=cmd_idealize)
     p = sub.add_parser("status", help="summarise what each stage produced"); _add_work(p); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("use-model", help="promote a COLMAP sub-model (e.g. colmap/sparse/models/3) to the workspace model")

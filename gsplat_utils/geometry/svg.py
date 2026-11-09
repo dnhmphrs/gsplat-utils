@@ -602,11 +602,17 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.0f}" height="{H:.0f}" '
            f'viewBox="{x0:.1f} {y0 - top_extra:.1f} {W:.1f} {H:.1f}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">',
            f'<rect x="{x0:.1f}" y="{y0 - top_extra:.1f}" width="{W:.1f}" height="{H:.1f}" fill="{S["bg"]}"/>']
-    level_ids = sorted(levels)
-    order_layers = []
-    for lid in level_ids:
-        order_layers += [f"level-L{lid}", f"stairs-L{lid}"]
-    order_layers += [k for k in faces.layers if k not in order_layers and k not in ("path", "labels")]
+    # draw order: by floor height (a landing-level hall between two storeys sorts between them),
+    # each stairs layer right after the level it rises from
+    def layer_height(name: str) -> float:
+        kind, _, num = name.partition("-L")
+        try:
+            lid = int(num)
+        except ValueError:
+            return 1e9
+        zf = levels.get(lid, {}).get("floor_z", 0.0)
+        return zf + (0.001 if kind == "stairs" else 0.0)
+    order_layers = sorted([k for k in faces.layers if k not in ("path", "labels")], key=layer_height)
     order_layers += ["path", "labels"]
     out += faces.emit(order_layers)
     if title:
