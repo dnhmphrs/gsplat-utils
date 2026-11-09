@@ -28,6 +28,14 @@ class IdealConfig:
     corridor_width: float = 2.0
     flight_width: float = 1.25
     step_rise: float = 0.17           # riser height of the drawn steps (m)
+    step_run: float = 0.28            # tread depth of straight (non-well) flights (m)
+    void_mode: str = "median"         # "median": one square well for all stairs; "measured": each stair its own (rounded)
+    flights: int | None = None        # flights per storey around a well (None = from the storey height)
+    gallery: str = "upper"            # "upper" | "both" | "none"
+    void_lines: bool = True           # wireframe box of the open well
+    iso_elevation: float = 35.264
+    mid_steps: list = field(default_factory=list)   # [(fraction_along_corridor, n_steps)] short flights inside corridors
+    entry_steps: int = 0              # straight flight between a lower entrance foyer and the first stair
     foyer: str = "base"               # "base": a start/end hall is the floor slab under its staircase; "beside": separate rectangle
     theme: str = "light"
     all_themes: bool = True           # also write styles/iso_<theme>.svg for every theme
@@ -70,7 +78,8 @@ class Element:
     a: np.ndarray = field(default_factory=lambda: np.zeros(2))      # corridor start/end (centreline)
     b: np.ndarray = field(default_factory=lambda: np.zeros(2))
     sense: int = 1                 # stairs rotation sense
-    void: float = 3.5
+    void: float = 3.5              # kept for compatibility: mean well side
+    void_size: np.ndarray = field(default_factory=lambda: np.array([3.5, 3.5]))
     m_centre: np.ndarray | None = None    # measured void centre
     m_entry: np.ndarray | None = None     # measured first/last stairs sample (xy)
     m_exit: np.ndarray | None = None
@@ -94,10 +103,15 @@ def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
             e = Element("stairs", r, level_from=r["level_from"], level_to=r["level_to"], void=void)
             e.m_entry = np.array(r["pieces"][0]["p0"][:2], float)
             e.m_exit = np.array(r["pieces"][-1]["p1"][:2], float)
+            e.void_size = np.array([void, void])
             if r.get("atrium"):
                 c = np.array(r["atrium"]["corners"])
                 e.centre = c.mean(axis=0)
                 e.m_centre = c.mean(axis=0)
+                if cfg.void_mode == "measured" and not cfg.void_side:
+                    sz = c.max(axis=0) - c.min(axis=0)
+                    e.void_size = np.maximum(np.array([_snap(sz[0], cfg.grid), _snap(sz[1], cfg.grid)]), 1.0)
+                    e.void = float(e.void_size.mean())
                 # rotation sense from the walked samples of this run
                 i0 = int(min(p["i0"] for p in r["pieces"])) if "i0" in r["pieces"][0] else None
                 seg = pts[(lv == -1)]
@@ -106,7 +120,7 @@ def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
                 e.sense = _rot_sense(near[:, :2]) if len(near) >= 3 else 1
             else:
                 e.centre = q.mean(axis=0)
-            e.size = np.array([void + 2 * cfg.flight_width] * 2)
+            e.size = e.void_size + 2 * cfg.flight_width
             els.append(e)
         elif r.get("hall"):
             e = Element("hall", r, level=r["level"])
@@ -223,22 +237,22 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
     walked rotation sense; corners are quarter landings; the remaining sides are
     gallery. Returns (flight_quads, landing_quads, atrium, route_pts)."""
     w = cfg.flight_width
-    half = e.void / 2
+    hx, hy = e.void_size[0] / 2, e.void_size[1] / 2
     c = e.centre
     # corner squares (landings) indexed by corner: 0=SW 1=SE 2=NE 3=NW ; sides: 0=S 1=E 2=N 3=W
-    corner_xy = {0: c + [-half - w / 2, -half - w / 2], 1: c + [half + w / 2, -half - w / 2],
-                 2: c + [half + w / 2, half + w / 2], 3: c + [-half - w / 2, half + w / 2]}
-    # side strips (between the two corner squares of that side)
-    def side_strip(side: int, za: float, zb: float) -> np.ndarray:
-        # returns quad l0,l1,r1,r0 along the walking direction with z interpolated
-        if side == 0:   # south: x from -half..half at y = -half - w/2
-            p0, p1 = c + [-half, -half - w / 2], c + [half, -half - w / 2]; n = np.array([0, -1.0])
+    corner_xy = {0: c + [-hx - w / 2, -hy - w / 2], 1: c + [hx + w / 2, -hy - w / 2],
+                 2: c + [hx + w / 2, hy + w / 2], 3: c + [-hx - w / 2, hy + w / 2]}
+
+    def side_strip(side: int, za: float, zb: float):
+        # centreline start/end of the strip along the ccw walking direction and its outward normal
+        if side == 0:
+            p0, p1 = c + [-hx, -hy - w / 2], c + [hx, -hy - w / 2]; n = np.array([0, -1.0])
         elif side == 1:
-            p0, p1 = c + [half + w / 2, -half], c + [half + w / 2, half]; n = np.array([1.0, 0])
+            p0, p1 = c + [hx + w / 2, -hy], c + [hx + w / 2, hy]; n = np.array([1.0, 0])
         elif side == 2:
-            p0, p1 = c + [half, half + w / 2], c + [-half, half + w / 2]; n = np.array([0, 1.0])
+            p0, p1 = c + [hx, hy + w / 2], c + [-hx, hy + w / 2]; n = np.array([0, 1.0])
         else:
-            p0, p1 = c + [-half - w / 2, half], c + [-half - w / 2, -half]; n = np.array([-1.0, 0])
+            p0, p1 = c + [-hx - w / 2, hy], c + [-hx - w / 2, -hy]; n = np.array([-1.0, 0])
         return p0, p1, n
     sense = e.sense
     exit_side = _side_of(e, exit_) if exit_ is not None else 0
@@ -260,8 +274,9 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
     entry_side = next(sd for sd in range(4) if corners_of_side(sd, sense)[0] == first_corner)
     if exit_ is None:
         exit_side = (entry_side + 2) % 4
-    # a storey is climbed in 2-4 flights of ~1.5 m around the well
-    n_fl = int(np.clip(round(abs(z1 - z0) / cfg.flight_rise), 2, 4))
+    # a storey is climbed in 2-4 flights of ~1.5 m around the well (or as configured)
+    n_fl = int(cfg.flights) if cfg.flights else int(np.clip(round(abs(z1 - z0) / cfg.flight_rise), 2, 4))
+    n_fl = int(np.clip(n_fl, 1, 4))
     order = [(entry_side + k * sense) % 4 for k in range(n_fl)]
     dz = (z1 - z0) / n_fl
     flights, landings, route = [], [], []
@@ -333,12 +348,41 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
         else:
             route = [np.r_[en, z0], np.r_[en[0], first[1], z0]] + route
     route_gallery = gallery
-    void_corners = _rect(c, np.array([e.void, e.void]), 0.0)[:, :2]
+    void_corners = _rect(c, e.void_size, 0.0)[:, :2]
     from .stairs import gallery_ring
     atrium = {"corners": void_corners.round(4).tolist(), "z0": float(z0), "z1": float(z1), "flight_width": w,
-              "ring": [np.round(q, 4).tolist() for q in gallery_ring(void_corners, w)], "inferred_ring": True,
-              "ring_levels": "upper"}
+              "ring": [np.round(q, 4).tolist() for q in gallery_ring(void_corners, w)] if cfg.gallery != "none" else [],
+              "inferred_ring": True, "ring_levels": cfg.gallery, "void_lines": bool(cfg.void_lines)}
     return flights, landings, atrium, (route, route_gallery), thick
+
+
+def _straight_flight(a: np.ndarray, b: np.ndarray, width: float, za: float, zb: float, cfg: IdealConfig):
+    """Step boxes for a straight flight from xy a (floor za) to xy b (floor zb). Returns (quads, thickness)."""
+    a = np.asarray(a, float); b = np.asarray(b, float)
+    d = b - a; L = float(np.linalg.norm(d)); d = d / max(L, 1e-9); n = np.array([-d[1], d[0]])
+    n_steps = max(2, int(round(abs(zb - za) / cfg.step_rise)))
+    rise = (zb - za) / n_steps
+    quads, thick = [], []
+    for k in range(n_steps):
+        t0, t1 = k / n_steps, (k + 1) / n_steps
+        p0 = a + d * L * t0; p1 = a + d * L * t1
+        ztop = za + (k + 1) * rise
+        quads.append(np.array([np.r_[p0 + n * width / 2, ztop], np.r_[p1 + n * width / 2, ztop],
+                               np.r_[p1 - n * width / 2, ztop], np.r_[p0 - n * width / 2, ztop]]))
+        thick.append(abs(rise))
+    return quads, thick
+
+
+def _stairs_run(rid: int, quads, thick, level_from: int, level_to: int, cam_h: float) -> dict:
+    """A plain stairs run (straight flight) for the diagram dict."""
+    return {"id": rid, "kind": "stairs", "hall": False, "level": -1, "level_from": level_from, "level_to": level_to,
+            "pieces": [{"p0": [*quads[0][0][:2], quads[0][0][2] + cam_h], "p1": [*quads[-1][1][:2], quads[-1][1][2] + cam_h],
+                        "left": 0.0, "right": 0.0, "axis": "", "length": float(np.linalg.norm(quads[-1][1][:2] - quads[0][0][:2])),
+                        "left_found": True, "right_found": True, "openings": []}],
+            "left_boundary": [q[0].tolist() for q in quads] + [quads[-1][1].tolist()],
+            "right_boundary": [q[3].tolist() for q in quads] + [quads[-1][2].tolist()],
+            "outline": np.vstack([q[:, :2] for q in quads]).tolist(),
+            "quads": [q.tolist() for q in quads], "quad_thickness": list(thick), "steps": True, "atrium": None, "walls": []}
 
 
 def _manhattan(a: np.ndarray, b: np.ndarray, z: float) -> list[np.ndarray]:
@@ -362,6 +406,9 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
     path_pts: list[np.ndarray] = []
     path_lv: list[int] = []
     labels = []
+    z_bias = 0.0                      # raised by short flights inside corridors (carried to the next stair)
+    entry_rise = cfg.entry_steps * cfg.step_rise if cfg.entry_steps > 0 else 0.0
+    corridor_idx = [k for k, e in enumerate(els) if e.kind == "corridor"]
     for i, e in enumerate(els):
         prev_ = els[i - 1] if i > 0 else None
         next_ = els[i + 1] if i + 1 < len(els) else None
@@ -381,10 +428,34 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                 # base slab under a staircase: the route runs from the Start/End point along the
                 # slab centreline to the stair block (the stair itself adds the rest)
                 nb = e.base_of
-                zc = z + cam_h
                 d_ = e.term - nb.centre
                 k = int(np.argmax(np.abs(d_)))
-                edge = nb.centre.copy(); edge[k] = nb.centre[k] + (1 if d_[k] >= 0 else -1) * nb.size[k] / 2
+                sign = 1 if d_[k] >= 0 else -1
+                edge = nb.centre.copy(); edge[k] = nb.centre[k] + sign * nb.size[k] / 2
+                if prev_ is None and entry_rise > 0:
+                    # lower entrance foyer + straight flight up to the stair base (which stays at level z)
+                    ext = e.size[k] - nb.size[k]
+                    foyer = e.centre.copy(); foyer[k] = nb.centre[k] + sign * (nb.size[k] / 2 + ext / 2)
+                    fsize = e.size.copy(); fsize[k] = ext
+                    zf = z - entry_rise
+                    runs[-1]["quads"] = [_rect(foyer, fsize, zf).tolist()]
+                    runs[-1]["outline"] = _rect(foyer, fsize, zf)[:, :2].tolist()
+                    runs[-1]["left_boundary"] = _rect(foyer, fsize, zf)[[0, 1]].tolist()
+                    runs[-1]["right_boundary"] = _rect(foyer, fsize, zf)[[3, 2]].tolist()
+                    base = _rect(nb.centre, nb.size, z)
+                    runs.append({**runs[-1], "id": len(runs), "quads": [base.tolist()], "outline": base[:, :2].tolist(),
+                                 "left_boundary": base[[0, 1]].tolist(), "right_boundary": base[[3, 2]].tolist()})
+                    run_len = cfg.entry_steps * cfg.step_run
+                    fa = edge.copy(); fa[k] = edge[k] + sign * run_len
+                    fq, ft = _straight_flight(fa, edge, cfg.corridor_width, zf, z, cfg)
+                    runs.append(_stairs_run(len(runs), fq, ft, e.level, e.level, cam_h))
+                    for p in _manhattan(np.asarray(e.term, float), fa, zf + cam_h):
+                        path_pts.append(p); path_lv.append(e.level)
+                    path_pts.append(np.r_[fa, zf + cam_h + entry_rise * 0.0]); path_lv.append(-1)
+                    path_pts.append(np.r_[edge, z + cam_h]); path_lv.append(-1)
+                    path_pts.append(np.r_[edge, z + cam_h]); path_lv.append(e.level)
+                    continue
+                zc = z + cam_h
                 seq = [e.term, edge] if prev_ is None else [edge, e.term]
                 for a_, b_ in zip(seq[:-1], seq[1:]):
                     for p in _manhattan(np.asarray(a_, float), np.asarray(b_, float), zc):
@@ -412,19 +483,43 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                 for p in _manhattan(np.asarray(a_, float), np.asarray(b_, float), zc):
                     path_pts.append(p); path_lv.append(e.level)
         elif e.kind == "corridor":
-            z = floor[e.level]
+            z = floor[e.level] + z_bias
             dv = e.b - e.a; L = float(np.linalg.norm(dv)); dv = dv / max(L, 1e-9); n = np.array([-dv[1], dv[0]])
             hw = cfg.corridor_width / 2
-            quad = np.array([np.r_[e.a + n * hw, z], np.r_[e.b + n * hw, z], np.r_[e.b - n * hw, z], np.r_[e.a - n * hw, z]])
-            runs.append({"id": rid, "kind": "flat", "hall": False, "level": e.level, "level_from": -1, "level_to": -1,
-                         "pieces": [{"p0": [*e.a, z + cam_h], "p1": [*e.b, z + cam_h], "left": hw, "right": hw, "axis": e.axis,
-                                     "length": L, "left_found": True, "right_found": True, "openings": []}],
-                         "left_boundary": quad[[0, 1]].tolist(), "right_boundary": quad[[3, 2]].tolist(),
-                         "outline": quad[:, :2].tolist(), "quads": [quad.tolist()], "atrium": None, "walls": []})
-            for p in (np.r_[e.a, z + cam_h], np.r_[e.b, z + cam_h]):
-                path_pts.append(p); path_lv.append(e.level)
+            # short flights inside this corridor (fraction along it, number of steps; negative = down)
+            steps_here = [(f_, ns) for f_, ns in cfg.mid_steps] if corridor_idx and i == corridor_idx[0] else []
+            cuts = [(0.0, 0)] + sorted(steps_here) + [(1.0, 0)]
+            zz = z
+            for (f0, n0), (f1, n1) in zip(cuts[:-1], cuts[1:]):
+                a_ = e.a + dv * L * f0; b_ = e.a + dv * L * f1
+                if n0:
+                    run_len = abs(n0) * cfg.step_run
+                    a_ = a_ + dv * run_len / 2
+                if n1:
+                    run_len = abs(n1) * cfg.step_run
+                    b_ = b_ - dv * run_len / 2
+                quad = np.array([np.r_[a_ + n * hw, zz], np.r_[b_ + n * hw, zz], np.r_[b_ - n * hw, zz], np.r_[a_ - n * hw, zz]])
+                runs.append({"id": len(runs), "kind": "flat", "hall": False, "level": e.level, "level_from": -1, "level_to": -1,
+                             "pieces": [{"p0": [*a_, zz + cam_h], "p1": [*b_, zz + cam_h], "left": hw, "right": hw, "axis": e.axis,
+                                         "length": float(np.linalg.norm(b_ - a_)), "left_found": True, "right_found": True, "openings": []}],
+                             "left_boundary": quad[[0, 1]].tolist(), "right_boundary": quad[[3, 2]].tolist(),
+                             "outline": quad[:, :2].tolist(), "quads": [quad.tolist()], "atrium": None, "walls": []})
+                for p in (np.r_[a_, zz + cam_h], np.r_[b_, zz + cam_h]):
+                    path_pts.append(p); path_lv.append(e.level)
+                if n1:
+                    rise = n1 * cfg.step_rise
+                    fa = b_; fb = b_ + dv * abs(n1) * cfg.step_run
+                    fq, ft = _straight_flight(fa, fb, cfg.corridor_width, zz, zz + rise, cfg)
+                    runs.append(_stairs_run(len(runs), fq, ft, e.level, e.level, cam_h))
+                    path_pts.append(np.r_[fa, zz + cam_h]); path_lv.append(-1)
+                    path_pts.append(np.r_[fb, zz + rise + cam_h]); path_lv.append(-1)
+                    zz += rise
+                    labels.append({"text": f"{abs(n1)} steps {'up' if rise > 0 else 'down'}", "xyz": [*(0.5 * (fa + fb)), zz - rise],
+                                   "level": e.level, "floor_z": float(zz - rise), "kind": "stairs"})
+            z_bias = zz - floor[e.level]
         else:
-            z0, z1 = floor.get(e.level_from, 0.0), floor.get(e.level_to, 0.0)
+            z0, z1 = floor.get(e.level_from, 0.0) + z_bias, floor.get(e.level_to, 0.0)
+            z_bias = 0.0
             entry = prev_.centre if prev_ is not None else None
             if prev_ is not None and prev_.kind == "corridor":
                 entry = prev_.b
@@ -524,13 +619,13 @@ def run_idealize(ws: Workspace, cfg: IdealConfig, diagram_path: os.PathLike | st
         write_plan_svg(out / f"plan_L{lv['id']}.svg", ideal, lv["id"], bounds, title=lv["name"], show_path=cfg.show_path)
     from .svg import THEMES
 
-    view = AxoView(cfg.iso_azimuth, explode_m=cfg.explode)
+    view = AxoView(cfg.iso_azimuth, cfg.iso_elevation, explode_m=cfg.explode)
     kw = dict(title=cfg.title, slab=cfg.slab, label_style=cfg.label_style)
     write_axo_svg(out / "iso.svg", ideal, view, show_path=cfg.show_path, theme=cfg.theme, **kw)
     write_axo_svg(out / "iso_noroute.svg", ideal, view, show_path=False, theme=cfg.theme, **kw)
     if len(ideal["levels"]) > 1 and cfg.explode == 0:
-        write_axo_svg(out / "iso_exploded.svg", ideal, AxoView(cfg.iso_azimuth, explode_m=3.0), show_path=cfg.show_path,
-                      theme=cfg.theme, **kw)
+        write_axo_svg(out / "iso_exploded.svg", ideal, AxoView(cfg.iso_azimuth, cfg.iso_elevation, explode_m=3.0),
+                      show_path=cfg.show_path, theme=cfg.theme, **kw)
     if cfg.all_themes:
         (out / "styles").mkdir(exist_ok=True)
         for name in THEMES:

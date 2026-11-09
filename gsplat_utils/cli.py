@@ -113,7 +113,10 @@ def cmd_idealize(a: argparse.Namespace) -> None:
     cfg = IdealConfig(grid=a.grid, corridor_width=a.corridor_width, flight_width=a.flight_width, void_side=a.void_side,
                       explode=a.explode, title=a.title, show_path=a.show_path, iso_azimuth=a.iso_azimuth,
                       theme=a.theme, all_themes=a.all_themes, foyer=a.foyer, label_style=a.label_style,
-                      start_label=a.start_label, end_label=a.end_label)
+                      start_label=a.start_label, end_label=a.end_label, void_mode=a.wells, flights=a.flights,
+                      gallery=a.gallery, void_lines=a.void_lines, iso_elevation=a.iso_elevation,
+                      mid_steps=[(float(x.split(":")[0]), int(x.split(":")[1])) for x in a.mid_steps],
+                      entry_steps=a.entry_steps)
     run_idealize(Workspace(a.work), cfg, diagram_path=a.diagram, out_dir=a.out)
 
 
@@ -378,6 +381,16 @@ def build_parser() -> argparse.ArgumentParser:
                    help="write label text on the drawing instead of numbered markers + key")
     p.add_argument("--start-label", default="Start")
     p.add_argument("--end-label", default="End", help="e.g. the room number the route leads to")
+    p.add_argument("--wells", choices=["median", "measured"], default="median",
+                   help="one square well for every stair, or each stair's own measured well size")
+    p.add_argument("--flights", type=int, default=None, help="flights per storey around a well (default from the height)")
+    p.add_argument("--gallery", choices=["upper", "both", "none"], default="upper")
+    p.add_argument("--no-void-lines", dest="void_lines", action="store_false")
+    p.add_argument("--iso-elevation", type=float, default=35.264)
+    p.add_argument("--mid-steps", action="append", default=[], metavar="FRACTION:N",
+                   help="short flight inside the corridor, e.g. 0.55:4 (negative N = down); repeatable")
+    p.add_argument("--entry-steps", type=int, default=0,
+                   help="straight flight of N steps from a lower entrance foyer up to the first stair")
     p.set_defaults(fn=cmd_idealize)
     p = sub.add_parser("status", help="summarise what each stage produced"); _add_work(p); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("use-model", help="promote a COLMAP sub-model (e.g. colmap/sparse/models/3) to the workspace model")

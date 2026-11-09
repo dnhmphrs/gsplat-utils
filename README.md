@@ -220,8 +220,13 @@ the flights, numbered markers with a short key instead of text on the drawing
 `iso_noroute.svg`, `iso_exploded.svg`, `diagram.glb/.obj`, the schematic `diagram.json`
 and one isometric per colour theme in `styles/` (`light`, `dark` = off-black with white
 lines, `blueprint`, `mono` line art, `paper`, `slate`; `--theme` picks the main one,
-`--iso-azimuth` turns the view). This is the drawing to hand to the sign designer; the
-measured one is the evidence behind it.
+`--iso-azimuth` / `--iso-elevation` turn the view). Geometry knobs: `--wells measured`
+(each stair its own well size), `--flights 2` (dog-leg), `--gallery upper|both|none`,
+`--mid-steps 0.55:4` (a short flight inside the corridor), `--entry-steps 8` (a lower
+entrance foyer with a straight flight up to the stair), `--corridor-width`, `--flight-width`.
+`python scripts/make_variants.py --work work --out variants/` renders a labelled contact
+sheet of angle and geometry variants. This is the drawing to hand to the sign designer;
+the measured one is the evidence behind it.
 
 ## Example: the sample walk-through
 

@@ -364,6 +364,8 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                 ring_levels = ((z_lo2, lo_layer, oz0), (z_hi2, hi_layer, oz1))
                 if at.get("ring_levels") == "upper":
                     ring_levels = (ring_levels[1],)
+                elif at.get("ring_levels") == "none":
+                    ring_levels = ()
                 for z, ly, oz in ring_levels:
                     for q in at.get("ring", []):
                         quad = np.c_[np.array(q), np.full(4, z)]
@@ -372,7 +374,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                 top = np.c_[corners, np.full(4, z_hi2 + oz1)]
                 pb, db = view.project(bot); pt, dt = view.project(top)
                 all_pts.append(pb); all_pts.append(pt)
-                for k in range(4):
+                for k in (range(4) if at.get("void_lines", True) else ()):
                     k2 = (k + 1) % 4
                     faces.add(layer, float(db[[k, k2]].mean()) + 0.05, _line(pb[k] * ppm, pb[k2] * ppm, stroke=S["void"], stroke_width=lw * 0.9))
                     faces.add(layer, float(dt[[k, k2]].mean()) + 0.05, _line(pt[k] * ppm, pt[k2] * ppm, stroke=S["void"], stroke_width=lw * 0.9))
