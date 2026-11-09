@@ -2,10 +2,9 @@
 
 All in the locked style (black line on white, numbered markers, key below; hidden edges
 of the stairs as light dashed lines) and the locked geometry: both stairs anticlockwise,
-three flights up (the first at the back of the foyer, the last running into the bridge),
-the bridge one straight line from the top of the first stair onto the first flight of the
-second, a full turn of four flights down, then straight off the landing into the
-antechamber.
+three flights up (south side, back, north side) with the walkway along the west side of
+the well running straight on as the bridge onto the first flight of the second stair, a
+full turn of four flights down, then straight off the landing into the antechamber.
 `contact_sheet.png` shows them side by side and `contact_sheet_angles.png` the angles
 alone, larger; each `*.svg` is editable (layers per level, stairs, hidden lines, path,
 labels, key).
@@ -39,7 +38,8 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 | g7_wells_4.5m | bigger wells: more legible stairs, less true |
 | g8_no_route | structure only, for a version where the route is added by hand |
 | g9_foyer_beside | halls as separate rooms beside the stairs: the earlier, weaker reading |
-| g10_landing_L | the previous reading of the bridge: it meets the near corner of each stair and the top landing runs the full side as an L |
+| g10_landing_L | the earlier reading of the bridge: it meets the near corner of each stair and the top landing runs the full side as an L |
+| g13_landing_inline | flights reordered so the last one of the first stair points straight down the bridge (back, north side, west side) |
 | g11_no_hidden_lines | hidden edges left out: the two foreshortened flights of the second stair fall back to a fan of plates |
 | g12_hidden_lines_all | hidden edges of the slabs too (under the bridge, under the stairs): more information, more clutter |
 
@@ -71,8 +71,8 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 
 ## Easter egg
 `route_to_g29_morse_example.svg` (one folder up) lays "FOLLOW THE LIGHT" in Morse along the
-route with `--morse "FOLLOW THE LIGHT" --morse-unit 0`. On the page the route is 1837 px
-long at 36 px/m, of which 1602 px are visible; at a 4 px dot that is 400 units, about 38
+route with `--morse "FOLLOW THE LIGHT" --morse-unit 0`. On the page the route is 1847 px
+long at 36 px/m, of which 1604 px are visible; at a 4 px dot that is 400 units, about 38
 characters of English with spaces (a dot of 3 px gives about 50). The message pauses where
 the route passes under the bridge and resumes after it.
 

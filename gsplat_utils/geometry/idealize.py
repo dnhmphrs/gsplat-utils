@@ -39,8 +39,10 @@ class IdealConfig:
     exit_after: list = field(default_factory=list)   # per stair: flights the route takes before leaving (0 = all)
     stair_flights: list = field(default_factory=list)  # per stair: flights per storey (0 = from the height / --flights)
     continue_flights: list = field(default_factory=list)  # per stair: extra flights drawn beyond the route's exit
-    top_landing: str = "straight"     # "straight": the corridor lines up with the top of the flight it meets;
-                                      # "L": it meets the near corner and the landing runs the full side
+    top_landing: str = "straight"     # "straight": the corridor continues the walkway along the exit side of the well,
+                                      # flights ordered from where you enter; "inline": the last flight itself runs in
+                                      # the corridor's direction; "L": the corridor meets the near corner and the
+                                      # landing runs the full side
     hidden_lines: str = "stairs"      # hidden edges as light dashed lines: "stairs" | "all" | "none"
     foyer_ext: float | None = 7.0     # how far a base-slab foyer extends beyond its stair block (None = from the measured hall)
     path_morse: str | None = None     # lay this text in Morse along the route instead of plain dashes
@@ -318,10 +320,10 @@ def _first_corner(block: Element, arrive_from: np.ndarray, exit_dir: np.ndarray 
                   cfg: IdealConfig | None = None) -> int:
     """Corner the first flight leaves from. Normally you arrive on the side facing
     `arrive_from`, walk it in the turning sense and climb from its far corner. With
-    `--landing straight` and a corridor leaving in `exit_dir`, the LAST flight is chosen to
+    `--landing inline` and a corridor leaving in `exit_dir`, the LAST flight is chosen to
     run in that direction (so the corridor continues it without a turn) and the first
     flight follows from the flight count."""
-    if exit_dir is not None and cfg is not None and cfg.top_landing == "straight":
+    if exit_dir is not None and cfg is not None and cfg.top_landing == "inline":
         d = np.asarray(exit_dir, float); d = d / max(np.linalg.norm(d), 1e-9)
         last_side = max(range(4), key=lambda sd: float((_WALK_CCW[sd] * block.sense) @ d))
         entry_side = (last_side - (block.n_fl - 1) * block.sense) % 4

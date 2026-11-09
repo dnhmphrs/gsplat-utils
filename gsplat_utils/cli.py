@@ -412,8 +412,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--morse-unit", dest="morse_unit_px", type=float, default=4.0, help="length of a Morse dot on the page, px at 36 px/m; 0 = stretch the message over the whole route")
     p.add_argument("--hidden-lines", choices=["stairs", "all", "none"], default="stairs",
                    help="draw edges hidden behind other surfaces as light dashed lines: of the stairs only, of everything, or not at all")
-    p.add_argument("--landing", dest="top_landing", choices=["straight", "L"], default="straight",
-                   help="how a corridor meets the top of a stair: in line with the flight (straight) or at the near corner with the landing running the full side (L)")
+    p.add_argument("--landing", dest="top_landing", choices=["straight", "inline", "L"], default="straight",
+                   help="how a corridor meets the top of a stair: continuing the walkway along the side of the well (straight), "
+                        "with the last flight itself pointing down the corridor (inline), or at the near corner with the landing running the full side (L)")
     p.set_defaults(fn=cmd_idealize)
     p = sub.add_parser("status", help="summarise what each stage produced"); _add_work(p); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("use-model", help="promote a COLMAP sub-model (e.g. colmap/sparse/models/3) to the workspace model")

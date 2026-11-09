@@ -231,11 +231,11 @@ that many flights; 0 = all), `--continue 0,1` (extra flights drawn beyond the ex
 the stair carries on), `--wells measured` (each stair its own well size), `--mid-steps
 0.55:4` (a short flight inside the corridor), `--entry-steps 8` (a lower entrance foyer
 with a straight flight up to the stair), `--corridor-width`, `--flight-width`. A corridor
-meeting a stair lines up with the flight it meets (`--landing straight`, the default: the
-last flight of the stair the corridor leaves is chosen to run in the corridor's
-direction, and the first flight of the stair it reaches continues it, so the top of one
-stair connects to the top of the next in one straight line) or meets the near corner
-with the landing running the full side (`--landing L`). A hall entered from a stair sits flush with the block at the exit
+meeting a stair continues the walkway along the side of the well it leaves from and runs
+straight onto the first flight of the stair it reaches (`--landing straight`, the
+default); `--landing inline` instead orders the flights so the last one itself points
+down the corridor; `--landing L` meets the near corner with the landing running the full
+side. A hall entered from a stair sits flush with the block at the exit
 landing, on a side the stair was not entered from, so you step straight off the stair
 into it; if the exit is between storeys the hall is drawn at that landing level. The
 Start/End point of a base slab sits in line with the foot of the first flight. The sample

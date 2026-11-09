@@ -45,6 +45,7 @@ VARIANTS: list[tuple[str, dict, dict]] = [
     ("g8_no_route", {"show_path": False}, {}),
     ("g9_foyer_beside", {"foyer": "beside"}, {}),
     ("g10_landing_L", {"top_landing": "L"}, {}),
+    ("g13_landing_inline", {"top_landing": "inline"}, {}),
     ("g11_no_hidden_lines", {"hidden_lines": "none"}, {}),
     ("g12_hidden_lines_all", {"hidden_lines": "all"}, {}),
 ]
