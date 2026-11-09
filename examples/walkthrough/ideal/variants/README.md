@@ -2,10 +2,10 @@
 
 All in the locked style (black line on white, numbered markers, key below; hidden edges
 of the stairs as light dashed lines) and the locked geometry: both stairs anticlockwise,
-a full turn of four flights up (the first along the right-hand side of the foyer, the
-last running into the bridge), the bridge one straight line from the top of the first stair
-onto the first flight of the second, a full turn of four flights down, then straight off
-the landing into the antechamber.
+three flights up (the first at the back of the foyer, the last running into the bridge),
+the bridge one straight line from the top of the first stair onto the first flight of the
+second, a full turn of four flights down, then straight off the landing into the
+antechamber.
 `contact_sheet.png` shows them side by side and `contact_sheet_angles.png` the angles
 alone, larger; each `*.svg` is editable (layers per level, stairs, hidden lines, path,
 labels, key).
@@ -71,8 +71,8 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 
 ## Easter egg
 `route_to_g29_morse_example.svg` (one folder up) lays "FOLLOW THE LIGHT" in Morse along the
-route with `--morse "FOLLOW THE LIGHT" --morse-unit 0`. On the page the route is 1815 px
-long at 36 px/m, of which 1563 px are visible; at a 4 px dot that is 390 units, about 37
+route with `--morse "FOLLOW THE LIGHT" --morse-unit 0`. On the page the route is 1837 px
+long at 36 px/m, of which 1602 px are visible; at a 4 px dot that is 400 units, about 38
 characters of English with spaces (a dot of 3 px gives about 50). The message pauses where
 the route passes under the bridge and resumes after it.
 
