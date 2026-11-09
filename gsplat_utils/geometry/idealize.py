@@ -27,6 +27,11 @@ class IdealConfig:
     grid: float = 0.5                 # everything snaps to this (m)
     corridor_width: float = 2.0
     flight_width: float = 1.25
+    step_rise: float = 0.17           # riser height of the drawn steps (m)
+    foyer: str = "base"               # "base": a start/end hall is the floor slab under its staircase; "beside": separate rectangle
+    theme: str = "light"
+    all_themes: bool = True           # also write styles/iso_<theme>.svg for every theme
+    label_style: str = "key"          # numbered markers + key, or "inline"
     flight_rise: float = 1.5          # typical rise of one flight between landings (m)
     void_side: float | None = None    # None = median of the measured wells, snapped
     hall_min: float = 4.0
@@ -34,7 +39,7 @@ class IdealConfig:
     explode: float = 0.0
     title: str | None = None
     show_path: bool = True
-    iso_azimuth: float = -45.0
+    iso_azimuth: float = -60.0        # view direction; -60 keeps the start/end markers clear of the galleries
 
 
 def _snap(v: float, g: float) -> float:
@@ -64,6 +69,11 @@ class Element:
     b: np.ndarray = field(default_factory=lambda: np.zeros(2))
     sense: int = 1                 # stairs rotation sense
     void: float = 3.5
+    m_centre: np.ndarray | None = None    # measured void centre
+    m_entry: np.ndarray | None = None     # measured first/last stairs sample (xy)
+    m_exit: np.ndarray | None = None
+    base_of: "Element | None" = None      # hall that is the floor slab under this staircase
+    term: np.ndarray | None = None        # Start/End point on a base slab
 
 
 def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
@@ -80,9 +90,12 @@ def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
         q = np.array([p for quad in r["quads"] for p in quad])[:, :2]
         if r["kind"] == "stairs":
             e = Element("stairs", r, level_from=r["level_from"], level_to=r["level_to"], void=void)
+            e.m_entry = np.array(r["pieces"][0]["p0"][:2], float)
+            e.m_exit = np.array(r["pieces"][-1]["p1"][:2], float)
             if r.get("atrium"):
                 c = np.array(r["atrium"]["corners"])
                 e.centre = c.mean(axis=0)
+                e.m_centre = c.mean(axis=0)
                 # rotation sense from the walked samples of this run
                 i0 = int(min(p["i0"] for p in r["pieces"])) if "i0" in r["pieces"][0] else None
                 seg = pts[(lv == -1)]
@@ -110,11 +123,37 @@ def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
     return els
 
 
-def _layout(els: list[Element], cfg: IdealConfig) -> None:
-    """Snap centres to the grid, straighten corridors, make neighbours abut."""
+def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, np.ndarray] | None = None) -> None:
+    """Snap centres to the grid, straighten corridors, make neighbours abut.
+    With cfg.foyer == "base", a hall at the start/end of the walk that sits next
+    to a staircase becomes the floor slab under that staircase, extended towards
+    the Start/End point; both ends get the same extension for balance."""
     g = cfg.grid
     for e in els:
         e.centre = np.array([_snap(e.centre[0], g), _snap(e.centre[1], g)])
+    if cfg.foyer == "base" and terminals is not None:
+        bases = []
+        for i, e in enumerate(els):
+            if e.kind != "hall" or i not in (0, len(els) - 1):
+                continue
+            nb = els[i + 1] if i == 0 and len(els) > 1 else els[i - 1] if i == len(els) - 1 and len(els) > 1 else None
+            if nb is None or nb.kind != "stairs":
+                continue
+            term = terminals[0] if i == 0 else terminals[1]
+            d = term - nb.centre
+            k = int(np.argmax(np.abs(d)))
+            sign = 1 if d[k] >= 0 else -1
+            edge = nb.centre[k] + sign * nb.size[k] / 2
+            ext = max(cfg.hall_min, abs(term[k] - edge) + 2.0)
+            bases.append((e, nb, k, sign, ext))
+        if bases:
+            ext = _snap(max(b[4] for b in bases), 1.0)      # same extension on both ends: balance
+            for e, nb, k, sign, _ in bases:
+                e.size = nb.size.copy(); e.size[k] += ext
+                e.centre = nb.centre.copy(); e.centre[k] += sign * ext / 2
+                e.base_of = nb
+                t = nb.centre.copy(); t[k] = nb.centre[k] + sign * (nb.size[k] / 2 + ext / 2)
+                e.term = t
     for e in els:
         if e.kind == "corridor":
             if e.axis == "y":
@@ -125,7 +164,7 @@ def _layout(els: list[Element], cfg: IdealConfig) -> None:
                 e.a = np.array([_snap(e.a[0], g), y]); e.b = np.array([_snap(e.b[0], g), y])
     # halls next to a stair block must not overlap it: push them out along the main offset axis
     for i, e in enumerate(els):
-        if e.kind != "hall":
+        if e.kind != "hall" or e.base_of is not None:
             continue
         for j in (i - 1, i + 1):
             if 0 <= j < len(els) and els[j].kind == "stairs":
@@ -206,8 +245,12 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
         # corner at the start and end of `side` when walking with sense_ (ccw = +1)
         ccw = {0: (0, 1), 1: (1, 2), 2: (2, 3), 3: (3, 0)}[side]
         return ccw if sense_ > 0 else (ccw[1], ccw[0])
-    # the climb starts at the corner nearest to where you enter the stair hall
-    if entry is not None:
+    # the climb starts at the corner where the walk actually entered the stair (measured),
+    # else at the corner nearest to the entry point
+    if e.m_entry is not None and e.m_centre is not None:
+        dm = e.m_entry - e.m_centre
+        first_corner = {(-1, -1): 0, (1, -1): 1, (1, 1): 2, (-1, 1): 3}[(1 if dm[0] >= 0 else -1, 1 if dm[1] >= 0 else -1)]
+    elif entry is not None:
         en0 = np.clip(np.array(entry, float), e.centre - e.size / 2 + w / 2, e.centre + e.size / 2 - w / 2)
         first_corner = min(corner_xy, key=lambda k: np.linalg.norm(corner_xy[k] - en0))
     else:
@@ -220,6 +263,7 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
     order = [(entry_side + k * sense) % 4 for k in range(n_fl)]
     dz = (z1 - z0) / n_fl
     flights, landings, route = [], [], []
+    thick = []
     seen_landings = set()
     z = z0
     route.append(np.r_[corner_xy[first_corner], z0])
@@ -233,13 +277,22 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
         r0, r1 = p0 - n * (w / 2), p1 - n * (w / 2)
         if sense < 0:
             l0, r0, l1, r1 = r0, l0, r1, l1
-        flights.append(np.array([np.r_[l0, z], np.r_[l1, z + dz], np.r_[r1, z + dz], np.r_[r0, z]]))
+        # real steps: flat tread boxes stacked along the walking direction
+        n_steps = max(3, int(round(abs(dz) / cfg.step_rise)))
+        rise = dz / n_steps
+        for k in range(n_steps):
+            t0, t1 = k / n_steps, (k + 1) / n_steps
+            a0 = l0 + (l1 - l0) * t0; a1 = l0 + (l1 - l0) * t1
+            b0 = r0 + (r1 - r0) * t0; b1 = r0 + (r1 - r0) * t1
+            ztop = z + (k + 1) * rise
+            flights.append(np.array([np.r_[a0, ztop], np.r_[a1, ztop], np.r_[b1, ztop], np.r_[b0, ztop]]))
+            thick.append(abs(rise))
         for cc, zz in ((c0, z), (c1, z + dz)):
             key = (cc, round(zz, 3))
             if key not in seen_landings:
                 seen_landings.add(key)
                 landings.append(_rect(corner_xy[cc], np.array([w, w]), zz))
-        route.append(np.r_[p0, z]); route.append(np.r_[p1, z + dz])
+        route.append(np.r_[p0, z + max(rise, 0)]); route.append(np.r_[p1, z + dz + max(-rise, 0)])
         z += dz
     last_corner = corners_of_side(order[-1], sense)[1]
     route.append(np.r_[corner_xy[last_corner], z1])
@@ -283,7 +336,7 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
     atrium = {"corners": void_corners.round(4).tolist(), "z0": float(z0), "z1": float(z1), "flight_width": w,
               "ring": [np.round(q, 4).tolist() for q in gallery_ring(void_corners, w)], "inferred_ring": True,
               "ring_levels": "upper"}
-    return flights, landings, atrium, (route, route_gallery)
+    return flights, landings, atrium, (route, route_gallery), thick
 
 
 def _manhattan(a: np.ndarray, b: np.ndarray, z: float) -> list[np.ndarray]:
@@ -298,7 +351,8 @@ def _manhattan(a: np.ndarray, b: np.ndarray, z: float) -> list[np.ndarray]:
 
 def idealize(d: dict, cfg: IdealConfig) -> dict:
     els = _elements(d, cfg)
-    _layout(els, cfg)
+    ppts = np.array(d["path"]["points"])
+    _layout(els, cfg, terminals=(ppts[0, :2].copy(), ppts[-1, :2].copy()))
     levels = {lv["id"]: lv for lv in d["levels"]}
     floor = {lid: _snap(lv["floor_z"] - d["levels"][0]["floor_z"], 0.25) for lid, lv in levels.items()}
     cam_h = d.get("camera_height_m", 1.5)
@@ -321,6 +375,19 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                          "outline": quad[:, :2].tolist(), "quads": [quad.tolist()], "atrium": None, "walls": []})
             # route through the hall: right-angled, from where we come in to where we leave
             lo_h, hi_h = e.centre - e.size / 2, e.centre + e.size / 2
+            if e.base_of is not None:
+                # base slab under a staircase: the route runs from the Start/End point along the
+                # slab centreline to the stair block (the stair itself adds the rest)
+                nb = e.base_of
+                zc = z + cam_h
+                d_ = e.term - nb.centre
+                k = int(np.argmax(np.abs(d_)))
+                edge = nb.centre.copy(); edge[k] = nb.centre[k] + (1 if d_[k] >= 0 else -1) * nb.size[k] / 2
+                seq = [e.term, edge] if prev_ is None else [edge, e.term]
+                for a_, b_ in zip(seq[:-1], seq[1:]):
+                    for p in _manhattan(np.asarray(a_, float), np.asarray(b_, float), zc):
+                        path_pts.append(p); path_lv.append(e.level)
+                continue
 
             def edge_point(other: Element) -> np.ndarray:
                 # point on the hall boundary facing `other`, at other's coordinate on the shared axis
@@ -359,11 +426,18 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
             entry = prev_.centre if prev_ is not None else None
             if prev_ is not None and prev_.kind == "corridor":
                 entry = prev_.b
+            if prev_ is not None and prev_.base_of is e:
+                entry = e.centre.copy(); dd = prev_.term - e.centre; kk = int(np.argmax(np.abs(dd)))
+                entry[kk] = e.centre[kk] + (1 if dd[kk] >= 0 else -1) * e.size[kk] / 2
             exit_ = next_.centre if next_ is not None else None
             if next_ is not None and next_.kind == "corridor":
                 exit_ = next_.a
-            flights, landings, atrium, (route, gallery) = _stair_block(e, entry, exit_, z0, z1, cfg)
+            if next_ is not None and next_.base_of is e:
+                exit_ = e.centre.copy(); dd = next_.term - e.centre; kk = int(np.argmax(np.abs(dd)))
+                exit_[kk] = e.centre[kk] + (1 if dd[kk] >= 0 else -1) * e.size[kk] / 2
+            flights, landings, atrium, (route, gallery), thick = _stair_block(e, entry, exit_, z0, z1, cfg)
             quads = flights + landings
+            quad_thickness = thick + [cfg.slab] * len(landings)
             runs.append({"id": rid, "kind": "stairs", "hall": False, "level": -1, "level_from": e.level_from, "level_to": e.level_to,
                          "pieces": [{"p0": [*q[0][:2], q[0][2] + cam_h], "p1": [*q[1][:2], q[1][2] + cam_h], "left": cfg.flight_width / 2,
                                      "right": cfg.flight_width / 2, "axis": "", "length": float(np.linalg.norm(q[1][:2] - q[0][:2])),
@@ -371,7 +445,8 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                          "left_boundary": [q[0].tolist() for q in flights] + [flights[-1][1].tolist()],
                          "right_boundary": [q[3].tolist() for q in flights] + [flights[-1][2].tolist()],
                          "outline": np.vstack([q[:, :2] for q in flights]).tolist(),
-                         "quads": [q.tolist() for q in quads], "atrium": atrium, "walls": []})
+                         "quads": [q.tolist() for q in quads], "quad_thickness": quad_thickness, "steps": True,
+                         "atrium": atrium, "walls": []})
             # route: entry leg (visible) -> flights (hidden) -> gallery to the exit (visible)
             n_entry = 3 if entry is not None else 1
             for p in route[:n_entry]:
@@ -380,8 +455,7 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                 path_pts.append(np.r_[p[:2], p[2] + cam_h]); path_lv.append(-1)
             for p in [route[-1]] + gallery:
                 path_pts.append(np.r_[p[:2], p[2] + cam_h]); path_lv.append(e.level_to)
-            lv_to = levels.get(e.level_to, {}).get("name", f"Level {e.level_to}")
-            labels.append({"text": f"Open stair {'up' if z1 > z0 else 'down'} to {lv_to}", "xyz": [*e.centre, min(z0, z1)],
+            labels.append({"text": f"Stairs {'up' if z1 > z0 else 'down'}", "xyz": [*e.centre, min(z0, z1)],
                            "level": int(min(e.level_from, e.level_to)), "floor_z": float(min(z0, z1)), "kind": "stairs"})
     pts = np.array(path_pts)
     labels.insert(0, {"text": "Start", "xyz": [float(pts[0, 0]), float(pts[0, 1]), float(pts[0, 2] - cam_h)], "level": int(path_lv[0]), "floor_z": float(pts[0, 2] - cam_h)})
@@ -413,8 +487,9 @@ def _ideal_meshes(ideal: dict, slab: float) -> list[Mesh]:
     stairs = Mesh("stairs", (0.80, 0.76, 0.68, 1.0))
     atrium = Mesh("atrium", (0.35, 0.35, 0.37, 1.0))
     for r in ideal["runs"]:
-        for q in r["quads"]:
-            top = np.array(q); bottom = top.copy(); bottom[:, 2] -= slab
+        th = r.get("quad_thickness") or [slab] * len(r["quads"])
+        for q, t in zip(r["quads"], th):
+            top = np.array(q); bottom = top.copy(); bottom[:, 2] -= t
             (stairs if r["kind"] == "stairs" else floors).add_prism(bottom, top)
         if r.get("atrium"):
             at = r["atrium"]; corners = np.array(at["corners"])
@@ -445,12 +520,19 @@ def run_idealize(ws: Workspace, cfg: IdealConfig, diagram_path: os.PathLike | st
     write_plan_svg(out / "plan.svg", ideal, None, bounds, title=cfg.title or "Plan", show_path=cfg.show_path)
     for lv in ideal["levels"]:
         write_plan_svg(out / f"plan_L{lv['id']}.svg", ideal, lv["id"], bounds, title=lv["name"], show_path=cfg.show_path)
+    from .svg import THEMES
+
     view = AxoView(cfg.iso_azimuth, explode_m=cfg.explode)
-    write_axo_svg(out / "iso.svg", ideal, view, title=cfg.title, show_path=cfg.show_path, slab=cfg.slab)
-    write_axo_svg(out / "iso_noroute.svg", ideal, view, title=cfg.title, show_path=False, slab=cfg.slab)
+    kw = dict(title=cfg.title, slab=cfg.slab, label_style=cfg.label_style)
+    write_axo_svg(out / "iso.svg", ideal, view, show_path=cfg.show_path, theme=cfg.theme, **kw)
+    write_axo_svg(out / "iso_noroute.svg", ideal, view, show_path=False, theme=cfg.theme, **kw)
     if len(ideal["levels"]) > 1 and cfg.explode == 0:
-        write_axo_svg(out / "iso_exploded.svg", ideal, AxoView(cfg.iso_azimuth, explode_m=3.0), title=cfg.title,
-                      show_path=cfg.show_path, slab=cfg.slab)
+        write_axo_svg(out / "iso_exploded.svg", ideal, AxoView(cfg.iso_azimuth, explode_m=3.0), show_path=cfg.show_path,
+                      theme=cfg.theme, **kw)
+    if cfg.all_themes:
+        (out / "styles").mkdir(exist_ok=True)
+        for name in THEMES:
+            write_axo_svg(out / "styles" / f"iso_{name}.svg", ideal, view, show_path=cfg.show_path, theme=name, **kw)
     meshes = _ideal_meshes(ideal, cfg.slab)
     write_glb(out / "diagram.glb", meshes)
     write_obj(out / "diagram.obj", meshes)

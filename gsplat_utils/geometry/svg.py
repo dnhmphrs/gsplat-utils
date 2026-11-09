@@ -69,6 +69,7 @@ def write_plan_svg(path, diagram: dict, level_id: int | None, bounds: tuple[floa
 
     runs = diagram["runs"]
     sel = [r for r in runs if level_id is None or r["kind"] == "stairs" or r["level"] == level_id]
+    sel = [r for r in sel if r["kind"] != "stairs"] + [r for r in sel if r["kind"] == "stairs"]   # floors under flights
     # floors
     for r in sel:
         if r["kind"] == "stairs" and level_id is not None and level_id not in (r["level_from"], r["level_to"]):
@@ -167,14 +168,33 @@ def _tread_lines(r: dict, P, px_per_m: float, every_m: float = 0.3) -> list[str]
 # ---------------------------------------------------------------------------
 ISO_ELEVATION = math.degrees(math.atan(1 / math.sqrt(2)))   # 35.264..: true isometric
 
-AXO_STYLE = {
-    "line": "#1f1f1f", "line_w": 1.0,
-    "floor_top": "#f3f1ec", "floor_side_a": "#d7d3ca", "floor_side_b": "#c6c1b7",
-    "wall_a": "#e4e1da", "wall_b": "#cdc8be", "wall_top": "#f7f6f2",
-    "stairs_top": "#ebe7de", "tread": "#8f8a80", "rail": "#dcd8cf",
-    "path": "#d9482b", "label": "#111111", "muted": "#6f6f6f", "leader": "#1f1f1f",
-    "ring": "#f7f5f0", "void": "#4a4a4a",
+THEMES = {
+    "light": dict(bg="#ffffff", line="#1f1f1f", line_w=1.0, floor_top="#f3f1ec", floor_side_a="#d7d3ca",
+                  floor_side_b="#c6c1b7", stairs_top="#ebe7de", riser="#d3ccbe", ring="#f7f5f0", void="#4a4a4a",
+                  path="#d9482b", label="#111111", muted="#6f6f6f", title="#111111", key_line="#d9d9d9",
+                  marker_fill="#d9482b", marker_text="#ffffff", tread="#8f8a80", rail="#dcd8cf"),
+    "dark": dict(bg="#121212", line="#f2f2f2", line_w=1.0, floor_top="#1b1b1b", floor_side_a="#262626",
+                 floor_side_b="#202020", stairs_top="#222222", riser="#2e2e2e", ring="#181818", void="#8c8c8c",
+                 path="#ff7a4d", label="#f2f2f2", muted="#9a9a9a", title="#ffffff", key_line="#333333",
+                 marker_fill="#ff7a4d", marker_text="#121212", tread="#8a8a8a", rail="#2e2e2e"),
+    "blueprint": dict(bg="#163a7a", line="#eaf2ff", line_w=1.0, floor_top="#1d4a96", floor_side_a="#2a5cb0",
+                      floor_side_b="#1a418a", stairs_top="#2457a8", riser="#2f66bd", ring="#1b4590", void="#9ec1ff",
+                      path="#ffd166", label="#ffffff", muted="#bcd0f5", title="#ffffff", key_line="#3b65b5",
+                      marker_fill="#ffd166", marker_text="#163a7a", tread="#9ec1ff", rail="#2f66bd"),
+    "mono": dict(bg="#ffffff", line="#000000", line_w=1.1, floor_top="#ffffff", floor_side_a="#ffffff",
+                 floor_side_b="#ffffff", stairs_top="#ffffff", riser="#ffffff", ring="#ffffff", void="#000000",
+                 path="#000000", label="#000000", muted="#555555", title="#000000", key_line="#000000",
+                 marker_fill="#000000", marker_text="#ffffff", tread="#000000", rail="#ffffff"),
+    "paper": dict(bg="#f4efe6", line="#3b3128", line_w=1.0, floor_top="#efe8da", floor_side_a="#d9cfbc",
+                  floor_side_b="#cbbfa9", stairs_top="#e6dcc8", riser="#d4c7ae", ring="#f1ebdf", void="#6b5d4f",
+                  path="#b8432f", label="#2b241e", muted="#7a6d60", title="#2b241e", key_line="#cdbfa8",
+                  marker_fill="#b8432f", marker_text="#ffffff", tread="#8b7d6b", rail="#d9cfbc"),
+    "slate": dict(bg="#1e2430", line="#e6ebf2", line_w=1.0, floor_top="#2a3140", floor_side_a="#363e4f",
+                  floor_side_b="#2f3747", stairs_top="#323a4a", riser="#3d465a", ring="#262d3b", void="#8fa0bb",
+                  path="#5ad1b9", label="#e6ebf2", muted="#9aa7bb", title="#ffffff", key_line="#3d465a",
+                  marker_fill="#5ad1b9", marker_text="#1e2430", tread="#8fa0bb", rail="#3d465a"),
 }
+AXO_STYLE = THEMES["light"]
 
 
 @dataclass
@@ -234,17 +254,35 @@ def _side_tone(normal_xy: np.ndarray, view: AxoView, a: str, b: str) -> str:
 
 def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.2, title: str | None = None,
                   shade: bool = True, stairs_wall_height: float = 0.9, slab: float = 0.15,
-                  show_path: bool = True, draw_walls: bool = False) -> None:
-    """Clean isometric building diagram: floor slabs, cut-away walls, stairs with
-    treads and balustrades, the walk path, labels. Grouped per level for editing."""
-    S = AXO_STYLE
+                  show_path: bool = True, draw_walls: bool = False, theme: str = "light",
+                  label_style: str = "inline", path_on_stairs: bool = True) -> None:
+    """Clean isometric building diagram: floor slabs, stairs (sloped slabs with
+    tread lines, or real steps when a run carries per-quad thickness), the
+    walk path, labels inline or as numbered markers with a key. Grouped per
+    level for editing. `theme` is one of THEMES."""
+    S = dict(THEMES.get(theme, THEMES["light"]))
     lw = S["line_w"]
     levels = {lv["id"]: lv for lv in diagram["levels"]}
     faces = _Faces()
     ppm = view.px_per_m
+    cam_h = diagram.get("camera_height_m", 1.5)
 
     def lvl_off(level_id: int) -> float:
         return view.explode_m * max(level_id, 0)
+
+    level_floors = sorted((lv["floor_z"], lid) for lid, lv in levels.items())
+
+    def off_for_z(z_floor: float) -> float:
+        """Exploded offset for an arbitrary floor height (interpolated between levels)."""
+        if view.explode_m == 0 or len(level_floors) < 2:
+            return 0.0
+        if z_floor <= level_floors[0][0]:
+            return lvl_off(level_floors[0][1])
+        for (za, la), (zb, lb) in zip(level_floors[:-1], level_floors[1:]):
+            if za <= z_floor <= zb:
+                t = (z_floor - za) / max(zb - za, 1e-9)
+                return lvl_off(la) + (lvl_off(lb) - lvl_off(la)) * t
+        return lvl_off(level_floors[-1][1])
 
     def run_layer(r: dict) -> str:
         if r["kind"] == "stairs":
@@ -259,33 +297,34 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         all_pts.append(p2)
         return p2 * ppm, d
 
-    def poly(p2, fill, stroke=S["line"], w=lw, extra=""):
-        return _poly(p2, fill=fill, stroke=stroke, stroke_width=w, stroke_linejoin="round") if not extra else \
-            _poly(p2, fill=fill, stroke=stroke, stroke_width=w, stroke_linejoin="round", **extra)
+    def poly(p2, fill, stroke=S["line"], w=lw, extra=None):
+        kw = dict(fill=fill, stroke=stroke, stroke_width=w, stroke_linejoin="round")
+        if extra:
+            kw.update(extra)
+        return _poly(p2, **kw)
 
-    def slab_faces(layer: str, quad_top: np.ndarray, off0: float, off1: float, top_fill: str, thickness: float):
-        """Top face + the visible side faces of a 4-point slab (l0,l1,r1,r0)."""
+    def slab_faces(layer, quad_top, offs, top_fill, thickness, side_fills=None):
+        """Top face + the visible side faces of a 4-point slab (l0,l1,r1,r0); `offs`
+        are per-vertex exploded offsets."""
         q = np.asarray(quad_top, float).copy()
-        offs = np.array([off0, off1, off1, off0])
+        offs = np.asarray(offs, float)
         q[:, 2] += offs
         bottom = q.copy(); bottom[:, 2] -= thickness
         p2, d = view.project(q); all_pts.append(p2)
         faces.add(layer, _quad_depth(d) - 0.03, poly(p2 * ppm, top_fill))
-        # sides: 4 edges; draw only those facing the viewer
+        sa, sb = side_fills or (S["floor_side_a"], S["floor_side_b"])
         _, _, wv = view.axes()
         for k in range(4):
             k2 = (k + 1) % 4
             e = q[k2, :2] - q[k, :2]
             if np.linalg.norm(e) < 1e-6:
                 continue
-            n = np.array([e[1], -e[0]])          # outward for a CCW (seen from above) quad
-            n /= np.linalg.norm(n)
+            n = np.array([e[1], -e[0]]); n /= np.linalg.norm(n)
             if np.array([n[0], n[1], 0.0]) @ wv <= 0:
                 continue
             side = np.array([q[k], q[k2], bottom[k2], bottom[k]])
             p2s, ds = view.project(side)
-            tone = _side_tone(n, view, S["floor_side_a"], S["floor_side_b"])
-            faces.add(layer, _quad_depth(ds) - 0.02, poly(p2s * ppm, tone))
+            faces.add(layer, _quad_depth(ds) - 0.02, poly(p2s * ppm, _side_tone(n, view, sa, sb)))
 
     for r in diagram["runs"]:
         layer = run_layer(r)
@@ -293,22 +332,21 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         if not quads:
             L = np.array(r["left_boundary"]); R = np.array(r["right_boundary"])
             quads = [np.array([L[j], L[j + 1], R[j + 1], R[j]]) for j in range(len(L) - 1)]
-        n = len(quads)
+        thick = r.get("quad_thickness") or [slab] * len(quads)
         if r["kind"] == "stairs":
             o0, o1 = lvl_off(r["level_from"]), lvl_off(r["level_to"])
             z_lo = min(q[:, 2].min() for q in quads); z_hi = max(q[:, 2].max() for q in quads)
+            lo_, hi_ = (o0, o1) if o1 >= o0 else (o1, o0)
             span = max(z_hi - z_lo, 1e-6)
 
-            def off_at(z):   # exploded offset interpolated by height along the flight
-                t = (z - z_lo) / span if o1 >= o0 else 1.0 - (z - z_lo) / span
-                lo_, hi_ = (o0, o1) if o1 >= o0 else (o1, o0)
-                return lo_ + (hi_ - lo_) * t
-            for quad in quads:
+            def off_at(z):
+                return lo_ + (hi_ - lo_) * (z - z_lo) / span
+            is_steps = bool(r.get("steps"))
+            for quad, th in zip(quads, thick):
                 offs = np.array([off_at(z) for z in quad[:, 2]])
-                slab_faces(layer, quad, offs[0], offs[1], S["stairs_top"], slab) if np.allclose(offs, offs[0]) else \
-                    slab_faces(layer, quad, offs[0], offs[1], S["stairs_top"], slab)
-                # treads on sloped quads along the walking direction l0 -> l1
-                if abs(quad[1, 2] - quad[0, 2]) > 1e-6:
+                slab_faces(layer, quad, offs, S["stairs_top"], th,
+                           side_fills=(S["riser"], S["riser"]) if is_steps else None)
+                if not is_steps and abs(quad[1, 2] - quad[0, 2]) > 1e-6:   # tread lines on sloped slabs
                     seg_len = np.linalg.norm(quad[1, :2] - quad[0, :2]); m = int(seg_len / 0.3)
                     for k in range(1, m):
                         t = k / m
@@ -329,7 +367,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                 for z, ly, oz in ring_levels:
                     for q in at.get("ring", []):
                         quad = np.c_[np.array(q), np.full(4, z)]
-                        slab_faces(ly, quad, oz, oz, S["ring"], slab)
+                        slab_faces(ly, quad, [oz] * 4, S["ring"], slab)
                 bot = np.c_[corners, np.full(4, z_lo2 + oz0)]
                 top = np.c_[corners, np.full(4, z_hi2 + oz1)]
                 pb, db = view.project(bot); pt, dt = view.project(top)
@@ -347,69 +385,84 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                 faces.add(layer, _quad_depth(d), poly(p2, S["rail"], extra={"fill_opacity": 0.9}))
         else:
             off = lvl_off(r["level"])
-            for quad in quads:
-                slab_faces(layer, quad, off, off, S["floor_top"], slab)
+            for quad, th in zip(quads, thick):
+                slab_faces(layer, quad, [off] * 4, S["floor_top"], th)
             for w in (r["walls"] if draw_walls else []):
                 a, b = np.array(w["a"]), np.array(w["b"])
                 z0 = w["z0"]
                 e = b - a
                 nrm = np.array([-e[1], e[0]]); nrm /= max(np.linalg.norm(nrm), 1e-9)
                 if w["side"] == "right":
-                    nrm = -nrm            # points into the corridor
+                    nrm = -nrm
                 for t0, t1 in w["solid"]:
                     pa = a + (b - a) * t0; pb = a + (b - a) * t1
                     quad = np.array([[*pa, z0], [*pb, z0], [*pb, z0 + cutaway_height], [*pa, z0 + cutaway_height]])
                     p2, d = P(quad, off)
-                    tone = _side_tone(nrm, view, S["wall_a"], S["wall_b"]) if shade else S["wall_a"]
+                    tone = _side_tone(nrm, view, S["floor_side_a"], S["floor_side_b"]) if shade else S["floor_side_a"]
                     faces.add(layer, _quad_depth(d), poly(p2, tone))
-                    th = 0.1
-                    top = np.array([[*(pa - nrm * th), z0 + cutaway_height], [*(pb - nrm * th), z0 + cutaway_height],
-                                    [*pb, z0 + cutaway_height], [*pa, z0 + cutaway_height]])
-                    p2t, dt = P(top, off)
-                    faces.add(layer, _quad_depth(dt) + 0.001, poly(p2t, S["wall_top"]))
                 for t0, t1 in w["openings"]:
                     pa = a + (b - a) * t0; pb = a + (b - a) * t1
                     p2, d = P(np.array([[*pa, z0], [*pb, z0]]), off)
                     faces.add(layer, _quad_depth(d), _line(p2[0], p2[1], stroke=S["muted"], stroke_width=lw,
                                                             stroke_dasharray="3 3"))
-    # path, drawn per flat stretch (the flights of stairs show the route themselves)
+    # path: one dashed polyline per continuous stretch; on stairs it climbs with the flights
     if show_path:
         pts = np.array(diagram["path"]["points"])
         lv = diagram["path"].get("level") or [0] * len(pts)
         chunk = []
         for p, l in list(zip(pts, lv)) + [(None, None)]:
-            if p is not None and l >= 0:
+            visible = p is not None and (l >= 0 or path_on_stairs)
+            if visible:
                 chunk.append((p, l))
                 continue
             if len(chunk) >= 2:
-                pp = np.array([c[0] for c in chunk]); offs = np.array([lvl_off(c[1]) for c in chunk])
-                pp[:, 2] = pp[:, 2] - diagram.get("camera_height_m", 1.5) + 0.06 + offs
+                pp = np.array([c[0] for c in chunk], float)
+                zf = pp[:, 2] - cam_h
+                offs = np.array([lvl_off(c[1]) if c[1] >= 0 else off_for_z(z) for c, z in zip(chunk, zf)])
+                pp[:, 2] = zf + 0.06 + offs
                 p2, d = P(pp)
                 faces.add("path", 0.0, _polyline(p2, fill="none", stroke=S["path"], stroke_width=lw * 1.8,
                                                  stroke_dasharray="6 4", stroke_linejoin="round", stroke_linecap="round"))
             chunk = []
     # labels
     fs = max(11.0, 0.4 * ppm)
-    for lb in diagram.get("labels", []):
+    key_rows = []
+    labels = list(diagram.get("labels", []))
+    if label_style == "key":
+        order = sorted(range(len(labels)), key=lambda i: (0 if labels[i]["text"] == "Start" else 2 if labels[i]["text"] == "End" else 1, i))
+        labels = [labels[i] for i in order]
+    for n, lb in enumerate(labels, start=1):
         p = np.array(lb["xyz"], float)
-        off = lvl_off(lb.get("level", 0)) if lb.get("level", 0) >= 0 else 0.0
+        off = lvl_off(lb.get("level", 0)) if lb.get("level", 0) >= 0 else off_for_z(lb.get("floor_z", p[2]))
         base = p.copy(); base[2] = lb.get("floor_z", p[2])
-        top = base.copy(); top[2] += (cutaway_height if draw_walls else 0.0) + 1.0
-        pb, _ = P(base, off); pt, _ = P(top, off)
-        pb, pt = pb[0], pt[0]
         is_stairs = lb.get("kind") == "stairs"
-        col = S["muted"] if is_stairs else S["label"]
-        faces.add("labels", 0.0, _line(pb, pt, stroke=col, stroke_width=lw))
-        if not is_stairs:
-            faces.add("labels", 0.0, f'<circle cx="{_fmt(pb[0])}" cy="{_fmt(pb[1])}" r="{_fmt(fs * 0.25)}" fill="{S["path"]}"/>')
-        faces.add("labels", 0.0, _text((pt[0] + 5, pt[1] - 3), lb["text"], fs * (0.8 if is_stairs else 1.0), fill=col,
-                                       font_weight="500" if is_stairs else "700"))
-    # level tags: at the left-most point of each level's floor geometry
+        if label_style == "key":
+            top = base.copy(); top[2] += 1.3
+            pb, _ = P(base, off); pt, _ = P(top, off)
+            pb, pt = pb[0], pt[0]
+            faces.add("labels", 0.0, _line(pb, pt, stroke=S["line"], stroke_width=lw))
+            rr = fs * 0.62
+            faces.add("labels", 0.0, f'<circle cx="{_fmt(pt[0])}" cy="{_fmt(pt[1] - rr)}" r="{_fmt(rr)}" fill="{S["marker_fill"]}" stroke="{S["bg"]}" stroke-width="{lw}"/>')
+            faces.add("labels", 0.0, _text((pt[0], pt[1] - rr + fs * 0.36), str(n), fs * 0.95, fill=S["marker_text"],
+                                           font_weight="700", text_anchor="middle"))
+            key_rows.append((n, lb["text"]))
+            all_pts.append(np.array([(pt - [0, 2 * rr]) / ppm]))
+        else:
+            top = base.copy(); top[2] += (cutaway_height if draw_walls else 0.0) + 1.0
+            pb, _ = P(base, off); pt, _ = P(top, off)
+            pb, pt = pb[0], pt[0]
+            col = S["muted"] if is_stairs else S["label"]
+            faces.add("labels", 0.0, _line(pb, pt, stroke=col, stroke_width=lw))
+            if not is_stairs:
+                faces.add("labels", 0.0, f'<circle cx="{_fmt(pb[0])}" cy="{_fmt(pb[1])}" r="{_fmt(fs * 0.25)}" fill="{S["path"]}"/>')
+            faces.add("labels", 0.0, _text((pt[0] + 5, pt[1] - 3), lb["text"], fs * (0.8 if is_stairs else 1.0), fill=col,
+                                           font_weight="500" if is_stairs else "700"))
+    # level tags: at the left-most point of each level's floor geometry, below it (inline style only)
     per_level: dict[int, list[np.ndarray]] = {}
     for r in diagram["runs"]:
-        if r["kind"] != "flat":
+        if r["kind"] != "flat" or label_style == "key":
             continue
-        pts3 = np.vstack([np.array(r["left_boundary"]), np.array(r["right_boundary"])])
+        pts3 = np.vstack([np.array(q) for q in r["quads"]]) if r.get("quads") else np.vstack([np.array(r["left_boundary"]), np.array(r["right_boundary"])])
         p2, _ = view.project(pts3, lvl_off(r["level"]))
         per_level.setdefault(r["level"], []).append(p2 * ppm)
     for lid, chunks in per_level.items():
@@ -417,27 +470,40 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         if lv_ is None:
             continue
         A_ = np.vstack(chunks)
-        k = int(np.argmin(A_[:, 0]))          # left-most point of the level, tag below-left of it
+        k = int(np.argmin(A_[:, 0]))
         faces.add("labels", 0.0, _text((A_[k, 0] - fs * 0.3, A_[k, 1] + fs * 1.6), lv_["name"], fs * 0.85,
                                        fill=S["muted"], text_anchor="end", font_weight="500"))
         all_pts.append(np.array([[A_[k, 0] / ppm - fs * 3.5 / ppm, A_[k, 1] / ppm + fs * 2 / ppm]]))
 
     A = np.vstack(all_pts) * ppm
-    pad = fs * 3
+    pad = fs * 2.5
     x0, y0 = A.min(axis=0) - pad; x1, y1 = A.max(axis=0) + pad
-    top_extra = fs * 2.5 if title else fs
-    W, H = x1 - x0, (y1 - y0) + top_extra
+    top_extra = fs * 2.6 if title else fs
+    key_h = (len(key_rows) + 0.5) * fs * 1.5 + fs if key_rows else 0.0
+    W, H = x1 - x0, (y1 - y0) + top_extra + key_h
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.0f}" height="{H:.0f}" '
            f'viewBox="{x0:.1f} {y0 - top_extra:.1f} {W:.1f} {H:.1f}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">',
-           f'<rect x="{x0:.1f}" y="{y0 - top_extra:.1f}" width="{W:.1f}" height="{H:.1f}" fill="white"/>']
+           f'<rect x="{x0:.1f}" y="{y0 - top_extra:.1f}" width="{W:.1f}" height="{H:.1f}" fill="{S["bg"]}"/>']
     level_ids = sorted(levels)
-    order = []
+    order_layers = []
     for lid in level_ids:
-        order += [f"level-L{lid}", f"stairs-L{lid}"]
-    order += [k for k in faces.layers if k not in order and k not in ("path", "labels")]
-    order += ["path", "labels"]
-    out += faces.emit(order)
+        order_layers += [f"level-L{lid}", f"stairs-L{lid}"]
+    order_layers += [k for k in faces.layers if k not in order_layers and k not in ("path", "labels")]
+    order_layers += ["path", "labels"]
+    out += faces.emit(order_layers)
     if title:
-        out.append(_text((x0 + 12, y0 - fs * 1.0), title, fs * 1.3, fill=S["label"], font_weight="700"))
+        out.append(_text((x0 + fs, y0 - fs * 1.1), title, fs * 1.3, fill=S["title"], font_weight="700"))
+    if key_rows:
+        out.append('<g id="key">')
+        ky = y1 + fs * 1.2
+        out.append(_line((x0 + fs, ky - fs * 0.6), (x1 - fs, ky - fs * 0.6), stroke=S["key_line"], stroke_width=lw))
+        rr = fs * 0.62
+        for i, (n, text) in enumerate(key_rows):
+            cy = ky + fs * 0.6 + i * fs * 1.5
+            cx = x0 + fs + rr
+            out.append(f'<circle cx="{_fmt(cx)}" cy="{_fmt(cy)}" r="{_fmt(rr)}" fill="{S["marker_fill"]}"/>')
+            out.append(_text((cx, cy + fs * 0.36), str(n), fs * 0.95, fill=S["marker_text"], font_weight="700", text_anchor="middle"))
+            out.append(_text((cx + rr + fs * 0.7, cy + fs * 0.36), text, fs, fill=S["label"], font_weight="500"))
+        out.append("</g>")
     out.append("</svg>")
     Path(path).write_text("\n".join(out), encoding="utf-8")

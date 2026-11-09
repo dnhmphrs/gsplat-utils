@@ -213,10 +213,15 @@ Reads the measured `diagram.json` and redraws the same elements as a clean schem
 on a 0.5 m grid: halls as rectangles, the corridor as a straight slab of standard
 width (`--corridor-width`), each open-well stair as a square well (`--void-side`,
 default the measured median) with three flights of `--flight-width` around it, quarter
-landings and a gallery on the upper level, a right-angled centreline route, Start/End
-and stair labels. Outputs `plan.svg`, `plan_L*.svg`, `iso.svg`, `iso_noroute.svg`,
-`iso_exploded.svg`, `diagram.glb/.obj` and the schematic `diagram.json`. This is the
-drawing to hand to the sign designer; the measured one is the evidence behind it.
+landings and a gallery on the upper level, real steps, a start/end hall drawn as the
+floor slab under its staircase (`--foyer beside` for a separate room), the route climbing
+the flights, numbered markers with a short key instead of text on the drawing
+(`--labels-inline` to revert). Outputs `plan.svg`, `plan_L*.svg`, `iso.svg`,
+`iso_noroute.svg`, `iso_exploded.svg`, `diagram.glb/.obj`, the schematic `diagram.json`
+and one isometric per colour theme in `styles/` (`light`, `dark` = off-black with white
+lines, `blueprint`, `mono` line art, `paper`, `slate`; `--theme` picks the main one,
+`--iso-azimuth` turns the view). This is the drawing to hand to the sign designer; the
+measured one is the evidence behind it.
 
 ## Example: the sample walk-through
 

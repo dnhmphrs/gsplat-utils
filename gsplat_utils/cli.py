@@ -111,7 +111,8 @@ def cmd_idealize(a: argparse.Namespace) -> None:
     from .geometry.idealize import IdealConfig, run_idealize
 
     cfg = IdealConfig(grid=a.grid, corridor_width=a.corridor_width, flight_width=a.flight_width, void_side=a.void_side,
-                      explode=a.explode, title=a.title, show_path=a.show_path, iso_azimuth=a.iso_azimuth)
+                      explode=a.explode, title=a.title, show_path=a.show_path, iso_azimuth=a.iso_azimuth,
+                      theme=a.theme, all_themes=a.all_themes, foyer=a.foyer, label_style=a.label_style)
     run_idealize(Workspace(a.work), cfg, diagram_path=a.diagram, out_dir=a.out)
 
 
@@ -365,9 +366,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--flight-width", type=float, default=1.25)
     p.add_argument("--void-side", type=float, default=None, help="side of the stair wells (default: measured median)")
     p.add_argument("--explode", type=float, default=0.0)
-    p.add_argument("--iso-azimuth", type=float, default=-45.0)
+    p.add_argument("--iso-azimuth", type=float, default=-60.0)
     p.add_argument("--no-path", dest="show_path", action="store_false")
     p.add_argument("--title", default=None)
+    p.add_argument("--theme", default="light", help="light | dark | blueprint | mono | paper | slate")
+    p.add_argument("--single-theme", dest="all_themes", action="store_false", help="do not write styles/ variants")
+    p.add_argument("--foyer", choices=["base", "beside"], default="base",
+                   help="start/end hall as the slab under its staircase (base) or a separate rectangle")
+    p.add_argument("--labels-inline", dest="label_style", action="store_const", const="inline", default="key",
+                   help="write label text on the drawing instead of numbered markers + key")
     p.set_defaults(fn=cmd_idealize)
     p = sub.add_parser("status", help="summarise what each stage produced"); _add_work(p); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("use-model", help="promote a COLMAP sub-model (e.g. colmap/sparse/models/3) to the workspace model")
