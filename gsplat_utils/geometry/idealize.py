@@ -32,6 +32,8 @@ class IdealConfig:
     theme: str = "light"
     all_themes: bool = True           # also write styles/iso_<theme>.svg for every theme
     label_style: str = "key"          # numbered markers + key, or "inline"
+    start_label: str = "Start"
+    end_label: str = "End"
     flight_rise: float = 1.5          # typical rise of one flight between landings (m)
     void_side: float | None = None    # None = median of the measured wells, snapped
     hall_min: float = 4.0
@@ -458,8 +460,8 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
             labels.append({"text": f"Stairs {'up' if z1 > z0 else 'down'}", "xyz": [*e.centre, min(z0, z1)],
                            "level": int(min(e.level_from, e.level_to)), "floor_z": float(min(z0, z1)), "kind": "stairs"})
     pts = np.array(path_pts)
-    labels.insert(0, {"text": "Start", "xyz": [float(pts[0, 0]), float(pts[0, 1]), float(pts[0, 2] - cam_h)], "level": int(path_lv[0]), "floor_z": float(pts[0, 2] - cam_h)})
-    labels.insert(1, {"text": "End", "xyz": [float(pts[-1, 0]), float(pts[-1, 1]), float(pts[-1, 2] - cam_h)], "level": int(path_lv[-1]), "floor_z": float(pts[-1, 2] - cam_h)})
+    labels.insert(0, {"text": cfg.start_label, "xyz": [float(pts[0, 0]), float(pts[0, 1]), float(pts[0, 2] - cam_h)], "level": int(path_lv[0]), "floor_z": float(pts[0, 2] - cam_h), "role": "start"})
+    labels.insert(1, {"text": cfg.end_label, "xyz": [float(pts[-1, 0]), float(pts[-1, 1]), float(pts[-1, 2] - cam_h)], "level": int(path_lv[-1]), "floor_z": float(pts[-1, 2] - cam_h), "role": "end"})
     # user labels (anything that is not Start/End/stairs) keep their text, snapped to the nearest route point
     for lb in d.get("labels", []):
         if lb.get("kind") == "stairs" or lb["text"] in ("Start", "End"):

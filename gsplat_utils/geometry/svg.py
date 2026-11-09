@@ -429,7 +429,10 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
     key_rows = []
     labels = list(diagram.get("labels", []))
     if label_style == "key":
-        order = sorted(range(len(labels)), key=lambda i: (0 if labels[i]["text"] == "Start" else 2 if labels[i]["text"] == "End" else 1, i))
+        def _rank(lb):
+            role = lb.get("role") or ("start" if lb["text"] == "Start" else "end" if lb["text"] == "End" else "")
+            return 0 if role == "start" else 2 if role == "end" else 1
+        order = sorted(range(len(labels)), key=lambda i: (_rank(labels[i]), i))
         labels = [labels[i] for i in order]
     for n, lb in enumerate(labels, start=1):
         p = np.array(lb["xyz"], float)
