@@ -48,7 +48,7 @@ class IdealConfig:
     shaft_lines: list = field(default_factory=list)  # per stair: "up" | "down" | "both" | "none": dashed verticals at the block corners
     shaft_ext: float = 2.0            # how far those lines run beyond the stair's top / bottom (m)
     corridor_max: float | None = None # draw a longer corridor at this length with a break mark in the middle
-    break_gap: float = 0.6            # gap in the slab and the route at the break (m)
+    break_gap: float = 0.6            # gap in the slab and the route at the break (m); 0 = shorten without a mark
     path_morse: str | None = None     # lay this text in Morse along the route instead of plain dashes
     morse_unit_px: float = 4.0        # length of a Morse dot on the page (px at 36 px/m)
 
@@ -783,7 +783,7 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
             # short flights inside this corridor (fraction along it, number of steps; negative = down)
             steps_here = [(f_, ns) for f_, ns in cfg.mid_steps] if corridor_idx and i == corridor_idx[0] else []
             cuts = [(0.0, 0)] + sorted(steps_here) + [(1.0, 0)]
-            if e.broken:
+            if e.broken and cfg.break_gap > 0:
                 # the slab and the route stop short of the middle on both sides: a break
                 g = min(cfg.break_gap, L / 3)
                 cuts = [(0.0, 0), ((L / 2 - g / 2) / L, "break"), ((L / 2 + g / 2) / L, "break"), (1.0, 0)]

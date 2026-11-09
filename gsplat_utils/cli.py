@@ -415,7 +415,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--shaft-lines", default="", help="per stair: up | down | both | none: dashed verticals at the block corners, e.g. up,both")
     p.add_argument("--shaft-ext", type=float, default=2.0, help="how far the shaft lines run beyond the stair's top / bottom, m")
     p.add_argument("--corridor-max", type=float, default=None, help="draw a longer corridor at this length with a break mark in the middle, m")
-    p.add_argument("--break-gap", type=float, default=0.6, help="gap in slab and route at the break mark, m")
+    p.add_argument("--break-gap", type=float, default=0.6, help="gap in slab and route at the break mark, m; 0 = shorten the corridor without a mark")
     p.add_argument("--hidden-lines", choices=["stairs", "all", "none"], default="stairs",
                    help="draw edges hidden behind other surfaces as light dashed lines: of the stairs only, of everything, or not at all")
     p.add_argument("--landing", dest="top_landing", choices=["straight", "inline", "L"], default="straight",

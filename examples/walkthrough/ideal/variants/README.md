@@ -5,9 +5,8 @@ of the stairs as light dashed lines) and the locked geometry: both stairs anticl
 three flights up (south side, back, north side) with the walkway along the west side of
 the well running straight on as the bridge onto the first flight of the second stair, a
 full turn of four flights down, then straight off the last step into a foyer the same
-size as the first. The bridge is drawn at 6 m with a break mark (it is 19 m), dashed
-verticals mark the stairwell corners (up past the first stair, up and down past the
-second), and the sign's view is azimuth 120, from behind the Start. `contact_sheet.png`
+size as the first. The bridge is drawn at 9 m (it is 19 m) without a break mark, and the
+sign's view is azimuth 120, from behind the Start. `contact_sheet.png`
 shows everything side by side, `contact_sheet_angles.png` the front angles and
 `contact_sheet_behind.png` the views from the Start side, larger; each `*.svg` is editable
 (layers per level, stairs, hidden lines, path, labels, key).
