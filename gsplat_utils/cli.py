@@ -121,7 +121,8 @@ def cmd_idealize(a: argparse.Namespace) -> None:
                       exit_after=[int(x) for x in a.exit_after.split(",") if x.strip()],
                       stair_flights=[int(x) for x in a.stair_flights.split(",") if x.strip()],
                       continue_flights=[int(x) for x in a.continue_flights.split(",") if x.strip()],
-                      top_landing=a.top_landing, hidden_lines=a.hidden_lines)
+                      top_landing=a.top_landing, hidden_lines=a.hidden_lines, foyer_ext=a.foyer_ext or None,
+                      path_morse=a.path_morse, morse_unit_px=a.morse_unit_px)
     run_idealize(Workspace(a.work), cfg, diagram_path=a.diagram, out_dir=a.out)
 
 
@@ -405,6 +406,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--stair-flights", default="", help="per stair: flights per storey, e.g. 3,4 (0 = default)")
     p.add_argument("--continue", dest="continue_flights", default="",
                    help="per stair: extra flights drawn beyond where the route leaves, e.g. 0,1")
+    p.add_argument("--foyer-ext", type=float, default=7.0, help="how far a start/end foyer slab extends beyond its stair block, m (0 = from the measured hall)")
+    p.add_argument("--morse", dest="path_morse", default=None,
+                   help="lay this text in Morse along the route (dot 1, dash 3, gaps 1/3/7 units); pass \"\" to just report the capacity")
+    p.add_argument("--morse-unit", dest="morse_unit_px", type=float, default=4.0, help="length of a Morse dot on the page, px at 36 px/m; 0 = stretch the message over the whole route")
     p.add_argument("--hidden-lines", choices=["stairs", "all", "none"], default="stairs",
                    help="draw edges hidden behind other surfaces as light dashed lines: of the stairs only, of everything, or not at all")
     p.add_argument("--landing", dest="top_landing", choices=["straight", "L"], default="straight",

@@ -31,7 +31,7 @@
       "pieces": [
         {
           "p0": [
-            -2.0,
+            2.0,
             4.5,
             1.5
           ],
@@ -43,7 +43,7 @@
           "left": 3.0,
           "right": 3.0,
           "axis": "x",
-          "length": 17.0,
+          "length": 13.0,
           "left_found": true,
           "right_found": true,
           "openings": []
@@ -51,7 +51,7 @@
       ],
       "left_boundary": [
         [
-          -2.0,
+          2.0,
           1.5,
           0.0
         ],
@@ -63,7 +63,7 @@
       ],
       "right_boundary": [
         [
-          -2.0,
+          2.0,
           7.5,
           0.0
         ],
@@ -75,7 +75,7 @@
       ],
       "outline": [
         [
-          -2.0,
+          2.0,
           1.5
         ],
         [
@@ -87,14 +87,14 @@
           7.5
         ],
         [
-          -2.0,
+          2.0,
           7.5
         ]
       ],
       "quads": [
         [
           [
-            -2.0,
+            2.0,
             1.5,
             0.0
           ],
@@ -109,7 +109,7 @@
             0.0
           ],
           [
-            -2.0,
+            2.0,
             7.5,
             0.0
           ]
@@ -4233,6 +4233,9 @@
     "continue_flights": [],
     "top_landing": "straight",
     "hidden_lines": "stairs",
+    "foyer_ext": 7.0,
+    "path_morse": "",
+    "morse_unit_px": 4.0,
     "entry_steps": 0,
     "foyer": "base",
     "theme": "mono",

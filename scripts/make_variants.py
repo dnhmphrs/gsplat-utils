@@ -31,6 +31,10 @@ VARIANTS: list[tuple[str, dict, dict]] = [
     ("a5_az-90_frontal", {}, {"azimuth_deg": -90}),
     ("a6_el30", {}, {"azimuth_deg": -60, "elevation_deg": 30}),
     ("a7_exploded", {}, {"azimuth_deg": -60, "explode_m": 3.0}),
+    ("a8_el35_true_isometric", {}, {"azimuth_deg": -45, "elevation_deg": 35.264}),
+    ("a9_az-30_wide", {}, {"azimuth_deg": -30}),
+    ("a10_az120_from_behind", {}, {"azimuth_deg": 120}),
+    ("a11_el20_lower", {}, {"azimuth_deg": -60, "elevation_deg": 20}),
     ("g1_wells_measured", {"void_mode": "measured"}, {}),
     ("g2_exit_one_flight_down", {"exit_after": [0, 1], "continue_flights": [0, 3]}, {}),
     ("g3_corridor_2.0m", {"corridor_width": 2.0}, {}),
@@ -90,22 +94,23 @@ def main() -> None:
             from PIL import Image, ImageDraw
         except ImportError:
             return
-        ims = [Image.open(s.with_suffix(".png")) for s in made if s.with_suffix(".png").exists()]
-        if not ims:
-            return
-        cols = 3
-        cw, ch = 620, 560
-        rows = (len(ims) + cols - 1) // cols
-        sheet = Image.new("RGB", (cols * cw, rows * ch), "white")
-        dr = ImageDraw.Draw(sheet)
-        for k, (svg, im) in enumerate(zip(made, ims)):
-            im = im.copy(); im.thumbnail((cw - 20, ch - 40))
-            x, y = (k % cols) * cw + 10, (k // cols) * ch + 30
-            sheet.paste(im, (x, y))
-            dr.text(((k % cols) * cw + 12, (k // cols) * ch + 8), svg.stem, fill="black")
-            dr.rectangle([(k % cols) * cw, (k // cols) * ch, (k % cols + 1) * cw - 1, (k // cols + 1) * ch - 1], outline="#dddddd")
-        sheet.save(a.out / "contact_sheet.png")
-        print("contact sheet:", a.out / "contact_sheet.png", sheet.size)
+        def sheet_of(svgs, name, cols=3, cw=620, ch=560):
+            ims = [(s, Image.open(s.with_suffix(".png"))) for s in svgs if s.with_suffix(".png").exists()]
+            if not ims:
+                return
+            rows = (len(ims) + cols - 1) // cols
+            sheet = Image.new("RGB", (cols * cw, rows * ch), "white")
+            dr = ImageDraw.Draw(sheet)
+            for k, (svg, im) in enumerate(ims):
+                im = im.copy(); im.thumbnail((cw - 20, ch - 40))
+                x, y = (k % cols) * cw + 10, (k // cols) * ch + 30
+                sheet.paste(im, (x, y))
+                dr.text(((k % cols) * cw + 12, (k // cols) * ch + 8), svg.stem, fill="black")
+                dr.rectangle([(k % cols) * cw, (k // cols) * ch, (k % cols + 1) * cw - 1, (k // cols + 1) * ch - 1], outline="#dddddd")
+            sheet.save(a.out / name)
+            print("contact sheet:", a.out / name, sheet.size)
+        sheet_of(made, "contact_sheet.png")
+        sheet_of([s for s in made if s.stem.startswith("a")], "contact_sheet_angles.png", cols=2, cw=900, ch=720)
 
 
 if __name__ == "__main__":

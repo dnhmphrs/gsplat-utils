@@ -42,6 +42,9 @@ class IdealConfig:
     top_landing: str = "straight"     # "straight": the corridor lines up with the top of the flight it meets;
                                       # "L": it meets the near corner and the landing runs the full side
     hidden_lines: str = "stairs"      # hidden edges as light dashed lines: "stairs" | "all" | "none"
+    foyer_ext: float | None = 7.0     # how far a base-slab foyer extends beyond its stair block (None = from the measured hall)
+    path_morse: str | None = None     # lay this text in Morse along the route instead of plain dashes
+    morse_unit_px: float = 4.0        # length of a Morse dot on the page (px at 36 px/m)
 
     def __post_init__(self):
         if self.corridor_width is None:
@@ -241,7 +244,7 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
             k = int(np.argmax(np.abs(d)))
             sign = 1 if d[k] >= 0 else -1
             edge = nb.centre[k] + sign * nb.size[k] / 2
-            ext = max(cfg.hall_min, abs(term[k] - edge) + 2.0)
+            ext = cfg.foyer_ext if cfg.foyer_ext else max(cfg.hall_min, abs(term[k] - edge) + 2.0)
             bases.append((e, nb, k, sign, ext))
         if bases:
             ext = _snap(max(b[4] for b in bases), 1.0)      # same extension on both ends: balance
@@ -249,7 +252,8 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
                 e.size = nb.size.copy(); e.size[k] += ext
                 e.centre = nb.centre.copy(); e.centre[k] += sign * ext / 2
                 e.base_of = nb
-                t = nb.centre.copy(); t[k] = nb.centre[k] + sign * (nb.size[k] / 2 + ext / 2)
+                # the Start/End point sits 1.5 m in from the far end of the slab, clear of the bridge
+                t = nb.centre.copy(); t[k] = nb.centre[k] + sign * (nb.size[k] / 2 + max(ext - 1.5, ext / 2))
                 if e is els[0]:
                     # the Start sits in line with the foot of the first flight, so the route walks
                     # straight onto the stair instead of along the side of the well
@@ -884,7 +888,8 @@ def run_idealize(ws: Workspace, cfg: IdealConfig, diagram_path: os.PathLike | st
     from .svg import THEMES
 
     view = AxoView(cfg.iso_azimuth, cfg.iso_elevation, explode_m=cfg.explode)
-    kw = dict(title=cfg.title, slab=cfg.slab, label_style=cfg.label_style, hidden_lines=cfg.hidden_lines)
+    kw = dict(title=cfg.title, slab=cfg.slab, label_style=cfg.label_style, hidden_lines=cfg.hidden_lines,
+              path_morse=cfg.path_morse, morse_unit_px=cfg.morse_unit_px)
     write_axo_svg(out / "iso.svg", ideal, view, show_path=cfg.show_path, theme=cfg.theme, **kw)
     write_axo_svg(out / "iso_noroute.svg", ideal, view, show_path=False, theme=cfg.theme, **kw)
     if len(ideal["levels"]) > 1 and cfg.explode == 0:

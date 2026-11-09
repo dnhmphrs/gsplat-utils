@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1192" height="711" viewBox="-583.3 -175.6 1192.1 710.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
-<rect x="-583.3" y="-175.6" width="1192.1" height="710.5" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1192" height="704" viewBox="-583.3 -169.1 1192.1 704.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+<rect x="-583.3" y="-169.1" width="1192.1" height="704.0" fill="#ffffff"/>
 <g id="level-L0">
-<path d="M -12.73,-37.65 L 420.02,145.23 L 572.76,80.69 L 140.01,-102.2 Z M -547.3,231.3 L -318.2,328.12 L -248.19,298.54 L -201.53,318.26 L -169.71,304.81 L -445.48,188.27 Z" fill="#ffffff" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-12.73,-37.65 420.02,145.23 420.02,150.13 -12.73,-32.76" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="420.02,145.23 572.76,80.69 572.76,85.58 420.02,150.13" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-547.3,231.3 -318.2,328.12 -318.2,333.02 -547.3,236.19" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-318.2,328.12 -248.19,298.54 -248.19,303.43 -318.2,333.02" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-248.19,298.54 -201.53,318.26 -201.53,323.15 -248.19,303.43" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-201.53,318.26 -169.71,304.81 -169.71,309.71 -201.53,323.15" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
+<path d="M -547.3,231.3 L -318.2,328.12 L -248.19,298.54 L -201.53,318.26 L -169.71,304.81 L -445.48,188.27 Z M 89.1,5.38 L 420.02,145.23 L 572.76,80.69 L 241.83,-59.17 Z" fill="#ffffff" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-547.3,231.3 -318.2,328.12 -318.2,333.02 -547.3,236.19" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-318.2,328.12 -248.19,298.54 -248.19,303.43 -318.2,333.02" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-248.19,298.54 -201.53,318.26 -201.53,323.15 -248.19,303.43" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-201.53,318.26 -169.71,304.81 -169.71,309.71 -201.53,323.15" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="89.1,5.38 420.02,145.23 420.02,150.13 89.1,10.27" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="420.02,145.23 572.76,80.69 572.76,85.58 420.02,150.13" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
 <line x1="143.19" y1="12.83" x2="148.86" y2="15.23" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="152.54" y1="16.79" x2="158.21" y2="19.18" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="161.89" y1="20.74" x2="167.56" y2="23.13" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
@@ -302,15 +302,15 @@
 <line x1="-142.13" y1="321.25" x2="-110.31" y2="334.69" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 <line x1="-102.22" y1="304.38" x2="-124.96" y2="313.99" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 <line x1="-135.29" y1="318.36" x2="-142.13" y2="321.25" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
-<line x1="103.23" y1="11.35" x2="140.84" y2="27.25" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
-<line x1="529.8" y1="62.53" x2="493.09" y2="47.02" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
-<line x1="293.58" y1="-37.3" x2="255.97" y2="-53.2" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 <line x1="-280.25" y1="312.08" x2="-248.19" y2="298.54" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 <line x1="-248.19" y1="298.54" x2="-246.07" y2="299.43" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 <line x1="-202.47" y1="317.86" x2="-201.53" y2="318.26" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 <line x1="-201.53" y1="318.26" x2="-169.71" y2="304.81" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 <line x1="-169.71" y1="304.81" x2="-176.54" y2="301.92" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 <line x1="-301.81" y1="248.98" x2="-339.42" y2="233.09" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
+<line x1="103.23" y1="11.35" x2="140.84" y2="27.25" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
+<line x1="529.8" y1="62.53" x2="493.09" y2="47.02" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
+<line x1="293.58" y1="-37.3" x2="255.97" y2="-53.2" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 </g>
 <g id="labels">
 <line x1="143.19" y1="14.79" x2="143.19" y2="-27.62" stroke="#000000" stroke-width="1.1"/>
@@ -326,7 +326,7 @@
 <circle cx="-346.84" cy="192.06" r="8.93" fill="#000000" stroke="#ffffff" stroke-width="1.1"/>
 <text x="-346.84" y="197.24" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
 </g>
-<text x="-568.9" y="-154.04" font-size="18.72" fill="#000000" font-weight="700">Route to G29  ·  az-45 isometric</text>
+<text x="-568.9" y="-147.47" font-size="18.72" fill="#000000" font-weight="700">Route to G29  ·  az-45 isometric</text>
 <g id="key">
 <line x1="-568.9" y1="431.93" x2="594.36" y2="431.93" stroke="#000000" stroke-width="1.1"/>
 <circle cx="-559.97" cy="449.21" r="8.93" fill="#000000"/>

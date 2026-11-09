@@ -7,7 +7,40 @@ from pathlib import Path
 
 import numpy as np
 
+from ..common import log
 from .rectunion import is_axis_rect, loop_is_ccw, rect_of, union_loops
+
+MORSE = {"A": ".-", "B": "-...", "C": "-.-.", "D": "-..", "E": ".", "F": "..-.", "G": "--.", "H": "....", "I": "..",
+         "J": ".---", "K": "-.-", "L": ".-..", "M": "--", "N": "-.", "O": "---", "P": ".--.", "Q": "--.-", "R": ".-.",
+         "S": "...", "T": "-", "U": "..-", "V": "...-", "W": ".--", "X": "-..-", "Y": "-.--", "Z": "--..",
+         "0": "-----", "1": ".----", "2": "..---", "3": "...--", "4": "....-", "5": ".....", "6": "-....", "7": "--...",
+         "8": "---..", "9": "----.", ".": ".-.-.-", ",": "--..--", "?": "..--..", "'": ".----.", "!": "-.-.--",
+         "/": "-..-.", "(": "-.--.", ")": "-.--.-", "&": ".-...", ":": "---...", ";": "-.-.-.", "=": "-...-",
+         "+": ".-.-.", "-": "-....-", "_": "..--.-", '"': ".-..-.", "$": "...-..-", "@": ".--.-."}
+
+
+def morse_symbols(text: str) -> list[tuple[bool, int]]:
+    """Text -> [(mark?, units)] with standard timing: dot 1, dash 3, gap 1 inside a
+    character, 3 between characters, 7 between words. Unknown characters are skipped."""
+    out: list[tuple[bool, int]] = []
+    words = [w for w in text.upper().split() if any(c in MORSE for c in w)]
+    for wi, word in enumerate(words):
+        chars = [c for c in word if c in MORSE]
+        for ci, ch in enumerate(chars):
+            code = MORSE[ch]
+            for ei, el in enumerate(code):
+                out.append((True, 1 if el == "." else 3))
+                if ei < len(code) - 1:
+                    out.append((False, 1))
+            if ci < len(chars) - 1:
+                out.append((False, 3))
+        if wi < len(words) - 1:
+            out.append((False, 7))
+    return out
+
+
+def morse_units(text: str) -> int:
+    return sum(n for _, n in morse_symbols(text))
 
 PALETTE = {
     "floor": "#e9e6df", "floor_stroke": "#b9b4a8", "wall": "#2b2b2b", "opening": "#9a9a9a",
@@ -181,6 +214,89 @@ def _tread_lines(r: dict, P, px_per_m: float, every_m: float = 0.3) -> list[str]
     return out
 
 
+def _emit_morse_route(faces, view, ppm, S, lw, runs_, text, unit_px, cam_h, lvl_off, off_for_z, layer_for,
+                      stairs_layer_for_z, all_pts) -> bool:
+    """Lay `text` in Morse along the route: marks are drawn only where the route is visible,
+    and the message pauses while the route passes under a slab (hidden stretches carry no
+    symbols). `unit_px` <= 0 stretches the message over the whole visible route. Logs the
+    route's capacity; returns False (nothing drawn) when the text has no Morse characters."""
+    step_px = 1.0
+    samples = []                     # (run index, 3D point incl. raise/offset, layer, flag)
+    for ri, (a, b, flag) in enumerate(runs_):
+        oa = lvl_off(flag) if flag >= 0 else off_for_z(float(a[2]))
+        ob = lvl_off(flag) if flag >= 0 else off_for_z(float(b[2]))
+        a3 = np.array([a[0], a[1], a[2] + 0.06 + oa]); b3 = np.array([b[0], b[1], b[2] + 0.06 + ob])
+        p2, _ = view.project(np.vstack([a3, b3])); all_pts.append(p2)
+        L_px = float(np.linalg.norm((p2[1] - p2[0]) * ppm))
+        n = max(1, int(np.ceil(L_px / step_px)))
+        for k in range(n + 1):
+            t = k / n
+            samples.append((ri, a3 + (b3 - a3) * t, a[2] + (b[2] - a[2]) * t, flag))
+    if len(samples) < 2:
+        return False
+    P = np.array([s_[1] for s_ in samples])
+    vis = faces.visible(P)
+    p2all, _ = view.project(P); p2all = p2all * ppm
+    # arc length of each step (between consecutive samples of the same run), visible or not
+    seg_len = np.zeros(len(samples)); seg_vis = np.zeros(len(samples), bool)
+    for i in range(len(samples) - 1):
+        if samples[i][0] == samples[i + 1][0]:
+            seg_len[i] = float(np.linalg.norm(p2all[i + 1] - p2all[i]))
+            seg_vis[i] = bool(vis[i] and vis[i + 1])
+    vis_len = np.where(seg_vis, seg_len, 0.0)
+    cum_vis = np.concatenate([[0.0], np.cumsum(vis_len)])          # visible arc at each sample
+    total_vis = float(cum_vis[-1]); total_all = float(seg_len.sum())
+    symbols = morse_symbols(text)
+    n_units = sum(n for _, n in symbols)
+    if unit_px <= 0:                                   # stretch the message over the visible route
+        unit_px = total_vis / max(n_units, 1)
+    cap_units = total_vis / unit_px
+    log.info("route on the page: %.0f px, %.0f px visible; Morse unit %.1f px -> %d units available "
+             "(about %d characters of English with spaces)%s", total_all, total_vis, unit_px, int(cap_units),
+             int(cap_units / 10.5), f"; message needs {n_units} units ({len(''.join(text.split()))} characters)" if symbols else "")
+    if not symbols:
+        return False
+    need = n_units * unit_px
+    if need > total_vis + 1e-6:
+        log.warning("Morse message does not fit on the visible route: %d units needed, %d available",
+                    n_units, int(cap_units))
+    elif need < 0.6 * total_vis:
+        log.info("the message uses %.0f%% of the visible route; --morse-unit 0 stretches it to fill",
+                 100 * need / total_vis)
+    # place each mark over the visible arc interval [s0, s1)
+    s = 0.0
+    for mark, n in symbols:
+        s0, s1 = s, s + n * unit_px
+        s = s1
+        if not mark:
+            continue
+        i0 = int(np.searchsorted(cum_vis, s0, side="right") - 1)
+        i1 = int(np.searchsorted(cum_vis, s1, side="left"))
+        i0 = max(0, min(i0, len(samples) - 1)); i1 = max(i0 + 1, min(i1, len(samples) - 1))
+        # contiguous visible stretches within [i0, i1] of the same run -> one line each
+        j = i0
+        while j < i1:
+            if not seg_vis[j]:
+                j += 1; continue
+            k = j
+            while k + 1 < i1 and seg_vis[k + 1] and samples[k + 1][0] == samples[j][0]:
+                k += 1
+            pa, pb = p2all[j], p2all[k + 1]
+            if j == i0 and cum_vis[j] < s0:              # trim the first step to the symbol start
+                f = (s0 - cum_vis[j]) / max(seg_len[j], 1e-9); pa = p2all[j] + (p2all[j + 1] - p2all[j]) * f
+            if k + 1 == i1 and cum_vis[k + 1] > s1:     # trim the last step to the symbol end
+                f = (s1 - cum_vis[k]) / max(seg_len[k], 1e-9); pb = p2all[k] + (p2all[k + 1] - p2all[k]) * f
+            mid = samples[j]
+            ly = layer_for(mid[1][:2], float(mid[2]), mid[3])
+            box = (float(min(P[j][0], P[k + 1][0])), float(min(P[j][1], P[k + 1][1])), float(min(P[j][2], P[k + 1][2])),
+                   float(max(P[j][0], P[k + 1][0])), float(max(P[j][1], P[k + 1][1])), float(max(P[j][2], P[k + 1][2])))
+            _, d = view.project(np.vstack([P[j], P[k + 1]]))
+            faces.add(ly, float(d.mean()) + 0.04,
+                      _line(pa, pb, stroke=S["path"], stroke_width=lw * 1.8, stroke_linecap="butt"), boxes=[box])
+            j = k + 1
+    return True
+
+
 # ---------------------------------------------------------------------------
 # axonometric view (clean architectural isometric)
 # ---------------------------------------------------------------------------
@@ -291,35 +407,54 @@ class _Faces:
             sbox = (float(arr[:, 0].min()), float(arr[:, 1].min()), float(arr[:, 2].max()), float(arr[:, 3].max()))
         self.layers.setdefault(layer, []).append(_Item(depth, svg, members, sbox, list(edges or []), kind))
 
+    def _boxes(self):
+        items = [it for lst in self.layers.values() for it in lst]
+        allboxes = [(np.array(bx, float), sb, id(it)) for it in items for bx, sb in it.members]
+        if not allboxes:
+            return items, None, None, None
+        B = np.array([b[0] for b in allboxes])            # (M, 6)
+        SB = np.array([b[1] for b in allboxes])           # (M, 4) screen bboxes
+        owner = np.array([b[2] for b in allboxes])
+        return items, B, SB, owner
+
+    def _hidden_mask(self, P: np.ndarray, B: np.ndarray, sel: np.ndarray) -> np.ndarray:
+        """P: (N,3) points, sel: indices into B of candidate boxes -> (N,) bool: the ray from
+        the point towards the viewer passes through some box (slab test)."""
+        if len(sel) == 0:
+            return np.zeros(len(P), bool)
+        w = np.asarray(self.w, float)
+        l_, h_ = B[sel, :3], B[sel, 3:]                                    # (M,3)
+        s_in = np.full((len(P), len(sel)), -np.inf); s_out = np.full((len(P), len(sel)), np.inf)
+        for k in range(3):
+            if abs(w[k]) < 1e-9:
+                inside = (P[:, None, k] >= l_[None, :, k] - 1e-9) & (P[:, None, k] <= h_[None, :, k] + 1e-9)
+                s_out = np.where(inside, s_out, -np.inf)
+                continue
+            s1 = (l_[None, :, k] - P[:, None, k]) / w[k]; s2 = (h_[None, :, k] - P[:, None, k]) / w[k]
+            s_in = np.maximum(s_in, np.minimum(s1, s2)); s_out = np.minimum(s_out, np.maximum(s1, s2))
+        hit = np.maximum(s_in, 0.0) < s_out - 1e-6
+        return hit.any(axis=1)
+
+    def visible(self, P: np.ndarray) -> np.ndarray:
+        """(N,) bool: which of the 3D points are not hidden behind any solid."""
+        _, B, _, _ = self._boxes()
+        if B is None:
+            return np.ones(len(P), bool)
+        out = np.ones(len(P), bool)
+        for i in range(0, len(P), 512):                   # chunked: N x M arrays
+            out[i:i + 512] = ~self._hidden_mask(P[i:i + 512], B, np.arange(len(B)))
+        return out
+
     def hidden_segments(self, kinds: tuple = ("stairs",), step: float = 0.03):
         """Parts of the items' top-face edges that lie behind some solid, as 3D segments.
         A point is hidden when the ray from it towards the viewer passes through a box
         (slab test); sampled along each edge and refined by bisection at the ends."""
-        w = np.asarray(self.w, float)
-        items = [it for lst in self.layers.values() for it in lst]
-        allboxes = [(np.array(bx, float), sb, id(it)) for it in items for bx, sb in it.members]
-        if not allboxes:
+        items, B, SB, owner = self._boxes()
+        if B is None:
             return []
-        B = np.array([b[0] for b in allboxes])            # (M, 6)
-        SB = np.array([b[1] for b in allboxes])           # (M, 4) screen bboxes
-        owner = np.array([b[2] for b in allboxes])
-        lo, hi = B[:, :3], B[:, 3:]
 
         def hidden_mask(P: np.ndarray, sel: np.ndarray) -> np.ndarray:
-            """P: (N,3) points, sel: indices of candidate boxes -> (N,) bool."""
-            if len(sel) == 0:
-                return np.zeros(len(P), bool)
-            l_, h_ = lo[sel], hi[sel]                                      # (M,3)
-            s_in = np.full((len(P), len(sel)), -np.inf); s_out = np.full((len(P), len(sel)), np.inf)
-            for k in range(3):
-                if abs(w[k]) < 1e-9:
-                    inside = (P[:, None, k] >= l_[None, :, k] - 1e-9) & (P[:, None, k] <= h_[None, :, k] + 1e-9)
-                    s_out = np.where(inside, s_out, -np.inf)
-                    continue
-                s1 = (l_[None, :, k] - P[:, None, k]) / w[k]; s2 = (h_[None, :, k] - P[:, None, k]) / w[k]
-                s_in = np.maximum(s_in, np.minimum(s1, s2)); s_out = np.minimum(s_out, np.maximum(s1, s2))
-            hit = np.maximum(s_in, 0.0) < s_out - 1e-6
-            return hit.any(axis=1)
+            return self._hidden_mask(P, B, sel)
 
         out = []
         for it in items:
@@ -439,7 +574,8 @@ def _side_tone(normal_xy: np.ndarray, view: AxoView, a: str, b: str) -> str:
 def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.2, title: str | None = None,
                   shade: bool = True, stairs_wall_height: float = 0.9, slab: float = 0.15,
                   show_path: bool = True, draw_walls: bool = False, theme: str = "light",
-                  label_style: str = "inline", path_on_stairs: bool = True, hidden_lines: str = "stairs") -> None:
+                  label_style: str = "inline", path_on_stairs: bool = True, hidden_lines: str = "stairs",
+                  path_morse: str | None = None, morse_unit_px: float = 4.0) -> None:
     """Clean isometric building diagram: floor slabs, stairs (sloped slabs with
     tread lines, or real steps when a run carries per-quad thickness), the
     walk path, labels inline or as numbered markers with a key. Grouped per
@@ -714,6 +850,9 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                     runs_[-1][1] = b
                     continue
             runs_.append([a, b, flag])
+        if path_morse is not None and _emit_morse_route(faces, view, ppm, S, lw, runs_, path_morse, morse_unit_px, cam_h,
+                                                        lvl_off, off_for_z, layer_for, stairs_layer_for_z, all_pts):
+            runs_ = []                                    # the message replaces the plain dashes
         dash_px, gap_px = 6.0, 4.0
         for a, b, flag in runs_:
             oa = lvl_off(flag) if flag >= 0 else off_for_z(float(a[2]))

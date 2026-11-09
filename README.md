@@ -254,7 +254,17 @@ fitted to each straight run (a run starts and ends with a full dash, so corners 
 solid) and disappears where it passes under a higher surface. Edges of the stairs that
 lie behind or beneath another surface are drawn as light dashed lines, the architect's
 hidden-line convention (`--hidden-lines stairs|all|none`); visibility comes from casting
-a ray from points along each edge towards the viewer through every box.
+a ray from points along each edge towards the viewer through every box. A start/end foyer
+drawn as the slab under its stair extends `--foyer-ext` metres beyond the block (7 m;
+0 = as far as the measured hall).
+
+`--morse "TEXT"` lays the text in Morse along the route instead of the plain dashes
+(dot 1 unit, dash 3, gaps 1 within a letter, 3 between letters, 7 between words;
+`--morse-unit` sets the dot length on the page, 4 px at 36 px/m, 0 = stretch the message
+over the whole route). Marks are placed only
+on the visible stretches of the route, so the message pauses where the route passes under
+a slab and carries on after it. The log reports the route's visible length, the units
+available and roughly how many characters of English that is; `--morse ""` just reports.
 `python scripts/make_variants.py --work work --out variants/` renders a labelled contact
 sheet of angle and geometry variants. This is the drawing to hand to the sign designer;
 the measured one is the evidence behind it.

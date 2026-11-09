@@ -5,8 +5,9 @@ of the stairs as light dashed lines) and the locked geometry: both stairs anticl
 three flights up ending in the bridge's direction, the bridge one straight line from the
 top of the first stair onto the first flight of the second, a full turn of four flights
 down, then straight off the landing into the antechamber.
-`contact_sheet.png` shows them side by side; each `*.svg` is editable (layers per level,
-stairs, hidden lines, path, labels, key).
+`contact_sheet.png` shows them side by side and `contact_sheet_angles.png` the angles
+alone, larger; each `*.svg` is editable (layers per level, stairs, hidden lines, path,
+labels, key).
 
 Made with `python scripts/make_variants.py --work work --out examples/walkthrough/ideal/variants`.
 
@@ -20,6 +21,10 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 | a5_az-90_frontal | looking straight along the corridor: a frontal axonometric, no depth on the halls — reject |
 | a6_el30 | higher eye point; treads show more of their depth everywhere, the drawing is less "model on a table" |
 | a7_exploded | levels pulled apart 3 m; still the fastest way to explain "up, across, down" |
+| a8_el35_true_isometric | the textbook 35.26° isometric at 45°; every axis equally foreshortened, flatter stairs |
+| a9_az-30_wide | wide landscape; the bridge nearly horizontal, both stairs seen side-on |
+| a10_az120_from_behind | from the far side; Start at the front, G29 at the back, the route reads bottom-to-top |
+| a11_el20_lower | lower still; most "model on a table", the fewest visible treads |
 
 ## Geometry
 | file | note |
@@ -62,6 +67,13 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 * **What works**: the base-slab foyer under the first stair, the corridor at landing
   width so the top landings are clean Ls, the stair carrying on below the antechamber,
   only walked surfaces drawn, markers off the drawing in a key.
+
+## Easter egg
+`route_to_g29_morse_example.svg` (one folder up) lays "FOLLOW THE LIGHT" in Morse along the
+route with `--morse "FOLLOW THE LIGHT" --morse-unit 0`. On the page the route is 1837 px
+long at 36 px/m, of which 1602 px are visible; at a 4 px dot that is 400 units, about 38
+characters of English with spaces (a dot of 3 px gives about 50). The message pauses where
+the route passes under the bridge and resumes after it.
 
 ## Recommendation
 `a2_az-60_base` for the sign. If the second staircase must be read tread by tread, use
