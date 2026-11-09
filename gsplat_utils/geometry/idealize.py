@@ -52,7 +52,8 @@ class IdealConfig:
         if self.corridor_width is None:
             self.corridor_width = self.flight_width
     entry_steps: int = 0              # straight flight between a lower entrance foyer and the first stair
-    foyer: str = "base"               # "base": a start/end hall is the floor slab under its staircase; "beside": separate rectangle
+    foyer: str = "base"               # "base": a start/end hall is a slab as deep as its stair block, flush against it,
+                                      # the Start/End in line with the first flight; "beside": the measured rectangle
     theme: str = "light"
     all_themes: bool = True           # also write styles/iso_<theme>.svg for every theme
     label_style: str = "key"          # numbered markers + key, or "inline"
@@ -99,7 +100,7 @@ class Element:
     m_centre: np.ndarray | None = None    # measured void centre
     m_entry: np.ndarray | None = None     # measured first/last stairs sample (xy)
     m_exit: np.ndarray | None = None
-    base_of: "Element | None" = None      # hall that is the floor slab under this staircase
+    base_of: "Element | None" = None      # hall that is the slab flush against this staircase
     term: np.ndarray | None = None        # Start/End point on a base slab
     exit_after: int = 0                   # stairs: route leaves after this many flights (0 = all)
     exit_from: "Element | None" = None    # hall entered part-way down/up a stair
@@ -186,8 +187,8 @@ def _exit_dir(els: list[Element], i: int) -> np.ndarray | None:
 def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, np.ndarray] | None = None) -> None:
     """Snap centres to the grid, straighten corridors, make neighbours abut.
     With cfg.foyer == "base", a hall at the start/end of the walk that sits next
-    to a staircase becomes the floor slab under that staircase, extended towards
-    the Start/End point; both ends get the same extension for balance."""
+    to a staircase becomes a slab as deep as the stair block, flush against it on
+    the Start/End side; both ends get the same length for balance."""
     g = cfg.grid
     for e in els:
         e.centre = np.array([_snap(e.centre[0], g), _snap(e.centre[1], g)])
@@ -229,7 +230,7 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
             half_c = cfg.corridor_width / 2
             # corridor outer edge on the corner's side == block edge on that side
             e.centre[k] = _snap(cp[k] + sgn * half_c - sgn * e.size[k] / 2, g)
-    # start/end halls as the floor slab under their staircase: after the blocks have found
+    # start/end halls as slabs flush against their staircase: after the blocks have found
     # their final place against the corridor, so the slab really sits under the stair
     if cfg.foyer == "base" and terminals is not None:
         bases = []
@@ -251,8 +252,9 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
         if bases:
             ext = _snap(max(b[4] for b in bases), 1.0)      # same extension on both ends: balance
             for e, nb, k, sign, _ in bases:
-                e.size = nb.size.copy(); e.size[k] += ext
-                e.centre = nb.centre.copy(); e.centre[k] += sign * ext / 2
+                # the slab is as deep as the stair block and sits flush against it, not under it
+                e.size = nb.size.copy(); e.size[k] = ext
+                e.centre = nb.centre.copy(); e.centre[k] += sign * (nb.size[k] / 2 + ext / 2)
                 e.base_of = nb
                 # the Start/End point sits 1.5 m in from the far end of the slab, clear of the bridge
                 t = nb.centre.copy(); t[k] = nb.centre[k] + sign * (nb.size[k] / 2 + max(ext - 1.5, ext / 2))
@@ -686,18 +688,13 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                 edge = nb.centre.copy(); edge[k] = nb.centre[k] + sign * nb.size[k] / 2
                 edge[1 - k] = float(e.term[1 - k])          # same row as the Start/End point
                 if prev_ is None and entry_rise > 0:
-                    # lower entrance foyer + straight flight up to the stair base (which stays at level z)
-                    ext = e.size[k] - nb.size[k]
-                    foyer = e.centre.copy(); foyer[k] = nb.centre[k] + sign * (nb.size[k] / 2 + ext / 2)
-                    fsize = e.size.copy(); fsize[k] = ext
+                    # lower entrance foyer + straight flight up to the stair (whose landing stays at level z)
+                    foyer = e.centre.copy(); fsize = e.size.copy()
                     zf = z - entry_rise
                     runs[-1]["quads"] = [_rect(foyer, fsize, zf).tolist()]
                     runs[-1]["outline"] = _rect(foyer, fsize, zf)[:, :2].tolist()
                     runs[-1]["left_boundary"] = _rect(foyer, fsize, zf)[[0, 1]].tolist()
                     runs[-1]["right_boundary"] = _rect(foyer, fsize, zf)[[3, 2]].tolist()
-                    base = _rect(nb.centre, nb.size, z)
-                    runs.append({**runs[-1], "id": len(runs), "quads": [base.tolist()], "outline": base[:, :2].tolist(),
-                                 "left_boundary": base[[0, 1]].tolist(), "right_boundary": base[[3, 2]].tolist()})
                     run_len = cfg.entry_steps * cfg.step_run
                     fa = edge.copy(); fa[k] = edge[k] + sign * run_len
                     fq, ft = _straight_flight(fa, edge, cfg.corridor_width, zf, z, cfg)

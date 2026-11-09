@@ -213,8 +213,8 @@ Reads the measured `diagram.json` and redraws the same elements as a clean schem
 on a 0.5 m grid: halls as rectangles, the corridor as a straight slab the same width as
 the stair landings (`--corridor-width` to change it), each open-well stair as a square
 well (`--void-side`, default the measured median) with flights of `--flight-width` around
-it, quarter landings, real steps, a start/end hall drawn as the floor slab under its
-staircase (`--foyer beside` for a separate room), the route climbing the flights, numbered
+it, quarter landings, real steps, a start/end hall drawn as a slab as deep as its stair
+block and flush against it (`--foyer beside` for the measured rectangle), the route climbing the flights, numbered
 markers with a short key instead of text on the drawing (`--labels-inline` to revert). On
 the stairs only the walked surfaces are drawn: flights, landings and the stretch of
 gallery the route crosses (`--gallery upper|both|none` and `--void-lines` add the full
@@ -243,7 +243,8 @@ sign was made with
 
 ```bash
 gsu idealize --theme mono --title "Route to G29" --end-label G29 \
-    --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4
+    --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4 \
+    --morse "Wovonmannichtsprechenkanndarübermussmanschweigen" --morse-unit 0
 ```
 
 Drawing rules: touching coplanar surfaces (slabs, landings, the top tread of a flight)

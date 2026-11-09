@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1062" height="841" viewBox="-638.7 -609.9 1061.7 841.1" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
 <rect x="-638.7" y="-609.9" width="1061.7" height="841.1" fill="#ffffff"/>
 <g id="level-L0">
-<path d="M 387,-283.28 L 106.41,-351.75 L 56.91,-315.51 L -0.25,-329.46 L -22.75,-312.99 L 315,-230.58 Z M -89.35,4.55 L -494.65,-94.34 L -602.65,-15.29 L -197.35,83.61 Z" fill="#ffffff" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-22.75,-312.99 315,-230.58 315,-225.68 -22.75,-308.1" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="315,-230.58 387,-283.28 387,-278.39 315,-225.68" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-602.65,-15.29 -197.35,83.61 -197.35,88.5 -602.65,-10.39" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-197.35,83.61 -89.35,4.55 -89.35,9.44 -197.35,88.5" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
+<path d="M 387,-283.28 L 106.41,-351.75 L 56.91,-315.51 L -0.25,-329.46 L -22.75,-312.99 L 315,-230.58 Z M -89.35,4.55 L -346.56,-58.21 L -369.06,-41.74 L -330.09,-32.23 L -415.59,30.36 L -197.35,83.61 Z" fill="#ffffff" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-22.75,-312.99 315,-230.58 315,-225.68 -22.75,-308.1" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="315,-230.58 387,-283.28 387,-278.39 315,-225.68" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-369.06,-41.74 -330.09,-32.23 -330.09,-27.34 -369.06,-36.85" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-415.59,30.36 -197.35,83.61 -197.35,88.5 -415.59,35.25" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-197.35,83.61 -89.35,4.55 -89.35,9.44 -197.35,88.5" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
 <line x1="26.17" y1="-313.99" x2="31.91" y2="-312.59" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="35.8" y1="-311.64" x2="41.54" y2="-310.24" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="45.43" y1="-309.29" x2="51.17" y2="-307.89" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
@@ -331,7 +331,6 @@
 <line x1="70.44" y1="-467.45" x2="109.41" y2="-457.94" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 <line x1="12.5" y1="-479.13" x2="6.58" y2="-480.57" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 <line x1="-10" y1="-462.66" x2="12.5" y2="-479.13" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
-<line x1="-346.56" y1="-58.21" x2="-423.62" y2="-77.01" stroke="#8c8c8c" stroke-width="0.6050000000000001" stroke-dasharray="2.42 2.42" stroke-linecap="butt"/>
 </g>
 <g id="labels">
 <line x1="-147.37" y1="1.37" x2="-147.37" y2="-41.04" stroke="#000000" stroke-width="1.1"/>

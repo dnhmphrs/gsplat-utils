@@ -70,11 +70,13 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
   only walked surfaces drawn, markers off the drawing in a key.
 
 ## Easter egg
-`route_to_g29_morse_example.svg` (one folder up) lays "FOLLOW THE LIGHT" in Morse along the
-route with `--morse "FOLLOW THE LIGHT" --morse-unit 0`. On the page the route is 1847 px
-long at 36 px/m, of which 1604 px are visible; at a 4 px dot that is 400 units, about 38
-characters of English with spaces (a dot of 3 px gives about 50). The message pauses where
-the route passes under the bridge and resumes after it.
+The route of the sign itself (`route_to_g29.svg`, one folder up) carries
+"Wovonmannichtsprechenkanndarübermussmanschweigen" in Morse, no spaces or punctuation so it does not
+read as a message at a glance: `--morse "Wovonmannichtsprechenkanndarübermussmanschweigen" --morse-unit 0`.
+The text needs 443 units (48 letters, ü as ..--); the visible route is 1604 px of
+1847 px at 36 px/m, so stretched to fill it the dot is 3.6 px (a 4 px dot would allow about
+42 characters of plain English). The message pauses where the route passes under the bridge
+and resumes after it. `route_to_g29_dashed.svg` is the same drawing with plain dashes.
 
 ## Recommendation
 `a2_az-60_base` for the sign. If the second staircase must be read tread by tread, use

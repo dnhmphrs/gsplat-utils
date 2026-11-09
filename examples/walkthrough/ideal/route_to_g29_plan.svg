@@ -24,7 +24,7 @@
 <path d="M 505,300 L 522.5,300 L 522.5,250 L 505,250 Z M 540,1110 L 563.33,1110 L 563.33,1060 L 540,1060 Z" fill="#e9e6df" fill-rule="evenodd" stroke="#2b2b2b" stroke-width="1.2" stroke-linejoin="round" fill-opacity="0.95"/>
 <path d="M 487.5,300 L 505,300 L 505,250 L 487.5,250 Z M 516.67,1110 L 540,1110 L 540,1060 L 516.67,1060 Z" fill="#e9e6df" fill-rule="evenodd" stroke="#2b2b2b" stroke-width="1.2" stroke-linejoin="round" fill-opacity="0.95"/>
 <path d="M 470,300 L 487.5,300 L 487.5,250 L 470,250 Z M 493.33,1110 L 516.67,1110 L 516.67,1060 L 493.33,1060 Z" fill="#e9e6df" fill-rule="evenodd" stroke="#2b2b2b" stroke-width="1.2" stroke-linejoin="round" fill-opacity="0.95"/>
-<path d="M 60,1220 L 420,1220 L 420,1110 L 493.33,1110 L 493.33,1060 L 60,1060 Z M 140,300 L 660,300 L 660,60 L 140,60 Z" fill="#e9e6df" fill-rule="evenodd" stroke="#2b2b2b" stroke-width="1.2" stroke-linejoin="round" fill-opacity="0.95"/>
+<path d="M 60,1220 L 420,1220 L 420,1110 L 493.33,1110 L 493.33,1060 L 60,1060 Z M 140,300 L 470,300 L 470,250 L 420,250 L 420,60 L 140,60 Z" fill="#e9e6df" fill-rule="evenodd" stroke="#2b2b2b" stroke-width="1.2" stroke-linejoin="round" fill-opacity="0.95"/>
 <line x1="-20" y1="1360" x2="-20" y2="0" stroke="#f0eee9" stroke-width="1"/>
 <line x1="20" y1="1360" x2="20" y2="0" stroke="#f0eee9" stroke-width="1"/>
 <line x1="60" y1="1360" x2="60" y2="0" stroke="#f0eee9" stroke-width="1"/>
