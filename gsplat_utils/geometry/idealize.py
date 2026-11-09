@@ -45,6 +45,10 @@ class IdealConfig:
                                       # landing runs the full side
     hidden_lines: str = "stairs"      # hidden edges as light dashed lines: "stairs" | "all" | "none"
     foyer_ext: float | None = 7.0     # how far a base-slab foyer extends beyond its stair block (None = from the measured hall)
+    shaft_lines: list = field(default_factory=list)  # per stair: "up" | "down" | "both" | "none": dashed verticals at the block corners
+    shaft_ext: float = 2.0            # how far those lines run beyond the stair's top / bottom (m)
+    corridor_max: float | None = None # draw a longer corridor at this length with a break mark in the middle
+    break_gap: float = 0.6            # gap in the slab and the route at the break (m)
     path_morse: str | None = None     # lay this text in Morse along the route instead of plain dashes
     morse_unit_px: float = 4.0        # length of a Morse dot on the page (px at 36 px/m)
 
@@ -108,6 +112,8 @@ class Element:
     cont: int = 0                         # stairs: extra flights drawn beyond the exit
     entry_pt: np.ndarray | None = None    # hall at a stair exit: point on its edge where the route comes in
     n_fl: int = 3                         # stairs: flights per storey actually drawn
+    shaft: str = "none"                   # stairs: dashed corner verticals
+    broken: bool = False                  # corridor: drawn shorter than it is, with a break mark
 
 
 def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
@@ -154,6 +160,8 @@ def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
                 e.flights = int(cfg.stair_flights[k_st])
             if k_st < len(cfg.continue_flights):
                 e.cont = int(cfg.continue_flights[k_st])
+            if k_st < len(cfg.shaft_lines):
+                e.shaft = str(cfg.shaft_lines[k_st])
             e.n_fl = _n_flights(e, floor.get(e.level_from, 0.0), floor.get(e.level_to, 0.0), cfg)
             els.append(e)
         elif r.get("hall"):
@@ -305,6 +313,26 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
             # the other end shares the same coordinate on the other axis
             q = getattr(e, "b" if end == "a" else "a").copy(); q[other] = p[other]
             setattr(e, "b" if end == "a" else "a", q)
+    # a corridor longer than cfg.corridor_max is drawn at that length with a break mark; what
+    # follows it slides along to meet the shortened end
+    if cfg.corridor_max:
+        for i, e in enumerate(els):
+            if e.kind != "corridor":
+                continue
+            k = 1 if e.axis == "y" else 0
+            L = abs(float(e.b[k] - e.a[k]))
+            if L <= cfg.corridor_max + 1e-6:
+                continue
+            shift = L - cfg.corridor_max
+            d = 1.0 if e.a[k] > e.b[k] else -1.0           # towards the corridor's start
+            for f in els[i + 1:]:
+                f.centre[k] += d * shift
+                if f.kind == "corridor":
+                    f.a[k] += d * shift; f.b[k] += d * shift
+                if f.term is not None:
+                    f.term[k] += d * shift
+            e.b[k] += d * shift
+            e.broken = True
 
 
 def _corner_xy(block: Element, corner: int, w: float) -> np.ndarray:
@@ -619,6 +647,20 @@ def place_exit_hall(stair: Element, hall: Element, entry: np.ndarray, corridor_f
     hall.exit_from = stair
 
 
+def _shaft_lines(e: Element, z0: float, z1: float, cfg: IdealConfig) -> list[list[float]]:
+    """Dashed verticals at the four corners of the stair block: [x, y, z_lo, z_hi] each.
+    "up" runs from the stair's lowest floor to shaft_ext above its highest, "down" the other
+    way round, "both" past both ends."""
+    if e.shaft not in ("up", "down", "both"):
+        return []
+    lo, hi = min(z0, z1), max(z0, z1)
+    z_lo = lo - cfg.shaft_ext if e.shaft in ("down", "both") else lo
+    z_hi = hi + cfg.shaft_ext if e.shaft in ("up", "both") else hi
+    hx, hy = e.size / 2
+    return [[float(e.centre[0] + sx * hx), float(e.centre[1] + sy * hy), float(z_lo), float(z_hi)]
+            for sx in (-1, 1) for sy in (-1, 1)]
+
+
 def _manhattan(a: np.ndarray, b: np.ndarray, z: float) -> list[np.ndarray]:
     """Right-angled route from a to b: first along x, then along y."""
     mid = np.array([b[0], a[1]])
@@ -741,13 +783,26 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
             # short flights inside this corridor (fraction along it, number of steps; negative = down)
             steps_here = [(f_, ns) for f_, ns in cfg.mid_steps] if corridor_idx and i == corridor_idx[0] else []
             cuts = [(0.0, 0)] + sorted(steps_here) + [(1.0, 0)]
+            if e.broken:
+                # the slab and the route stop short of the middle on both sides: a break
+                g = min(cfg.break_gap, L / 3)
+                cuts = [(0.0, 0), ((L / 2 - g / 2) / L, "break"), ((L / 2 + g / 2) / L, "break"), (1.0, 0)]
             zz = z
             for (f0, n0), (f1, n1) in zip(cuts[:-1], cuts[1:]):
+                if n0 == "break" and n1 == "break":
+                    # the gap: a zig-zag break mark across the corridor, nothing else
+                    m = e.a + dv * L * 0.5
+                    zig = [m - n * hw, m - n * hw * 0.5 - dv * 0.18, m + dv * 0.18, m + n * hw * 0.5 - dv * 0.18, m + n * hw]
+                    runs.append({"id": len(runs), "kind": "mark", "hall": False, "level": e.level, "level_from": -1, "level_to": -1,
+                                 "pieces": [], "left_boundary": [], "right_boundary": [], "outline": [], "quads": [], "atrium": None,
+                                 "walls": [], "break_marks": [[[*p, zz + 0.01] for p in zig]]})
+                    path_pts.append(np.r_[e.a + dv * L * f0, zz + cam_h]); path_lv.append(-9)      # pen up
+                    continue
                 a_ = e.a + dv * L * f0; b_ = e.a + dv * L * f1
-                if n0:
+                if n0 and n0 != "break":
                     run_len = abs(n0) * cfg.step_run
                     a_ = a_ + dv * run_len / 2
-                if n1:
+                if n1 and n1 != "break":
                     run_len = abs(n1) * cfg.step_run
                     b_ = b_ - dv * run_len / 2
                 quad = np.array([np.r_[a_ + n * hw, zz], np.r_[b_ + n * hw, zz], np.r_[b_ - n * hw, zz], np.r_[a_ - n * hw, zz]])
@@ -758,7 +813,9 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                              "outline": quad[:, :2].tolist(), "quads": [quad.tolist()], "atrium": None, "walls": []})
                 for p in (np.r_[a_, zz + cam_h], np.r_[b_, zz + cam_h]):
                     path_pts.append(p); path_lv.append(e.level)
-                if n1:
+                if n1 == "break":
+                    continue
+                if n1 and n1 != "break":
                     rise = n1 * cfg.step_rise
                     fa = b_; fb = b_ + dv * abs(n1) * cfg.step_run
                     fq, ft = _straight_flight(fa, fb, cfg.corridor_width, zz, zz + rise, cfg)
@@ -804,7 +861,8 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                          "right_boundary": [q[3].tolist() for q in flights] + [flights[-1][2].tolist()],
                          "outline": np.vstack([q[:, :2] for q in flights]).tolist(),
                          "quads": [q.tolist() for q in quads], "quad_thickness": quad_thickness, "steps": True,
-                         "atrium": atrium, "walls": []})
+                         "atrium": atrium, "walls": [],
+                         "shaft_lines": _shaft_lines(e, z0, z1, cfg)})
             # route: entry leg (visible) -> flights (hidden) -> gallery to the exit (visible)
             n_entry = 3 if entry is not None else 1
             for p in route[:n_entry]:

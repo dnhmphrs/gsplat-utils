@@ -109,6 +109,11 @@ def write_plan_svg(path, diagram: dict, level_id: int | None, bounds: tuple[floa
     # floors: coplanar axis-aligned flats merged per height (no borders inside a continuous floor)
     merged: dict[float, list] = {}
     for r in sel:
+        if r["kind"] == "mark":
+            for pl in r.get("break_marks", []):
+                out.append(_polyline(np.array([P(p[:2]) for p in pl]), fill="none", stroke=PALETTE["wall"], stroke_width=1.2,
+                                     stroke_linejoin="round"))
+            continue
         if r["kind"] == "stairs" and level_id is not None and level_id not in (r["level_from"], r["level_to"]):
             continue
         if r["kind"] == "stairs" and r.get("atrium"):   # gallery ring first, flights on top
@@ -688,6 +693,17 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
 
     for r in diagram["runs"]:
         layer = run_layer(r)
+        if r["kind"] == "mark":
+            # break mark: a zig-zag across the corridor where it is drawn shorter than it is
+            off = lvl_off(r["level"])
+            for pl in r.get("break_marks", []):
+                P3 = np.array(pl, float); P3[:, 2] += off
+                p2, d = view.project(P3); all_pts.append(p2)
+                box = (float(P3[:, 0].min()), float(P3[:, 1].min()), float(P3[:, 2].min()),
+                       float(P3[:, 0].max()), float(P3[:, 1].max()), float(P3[:, 2].max()))
+                faces.add(layer, float(d.mean()) + 0.03,
+                          _polyline(p2 * ppm, fill="none", stroke=S["line"], stroke_width=lw, stroke_linejoin="round"), boxes=[box])
+            continue
         quads = [np.array(q, float) for q in (r.get("quads") or [])]
         if not quads:
             L = np.array(r["left_boundary"]); R = np.array(r["right_boundary"])
@@ -751,6 +767,21 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                     faces.add(layer, float(db[[k, k2]].mean()) + 0.05, _line(pb[k] * ppm, pb[k2] * ppm, stroke=S["void"], stroke_width=lw * 0.9))
                     faces.add(layer, float(dt[[k, k2]].mean()) + 0.05, _line(pt[k] * ppm, pt[k2] * ppm, stroke=S["void"], stroke_width=lw * 0.9))
                     faces.add(layer, float((db[k] + dt[k]) / 2) + 0.05, _line(pb[k] * ppm, pt[k] * ppm, stroke=S["void"], stroke_width=lw * 0.9))
+            # dashed verticals at the block corners (stairwell), split at the floors so each
+            # piece is ordered with the geometry of its own storey
+            for sl in r.get("shaft_lines", []):
+                x, y, zlo, zhi = (float(v) for v in sl)
+                cuts = sorted({zlo, zhi} | {lv["floor_z"] for lv in levels.values() if zlo < lv["floor_z"] < zhi})
+                cum = 0.0
+                for za, zb in zip(cuts[:-1], cuts[1:]):
+                    oa, ob = off_for_z(za), off_for_z(zb)
+                    A = np.array([x, y, za + oa]); B = np.array([x, y, zb + ob])
+                    p2, d = view.project(np.vstack([A, B])); all_pts.append(p2)
+                    faces.add(stairs_layer_for_z(za + 1e-6), float(d.mean()) + 0.02,
+                              _line(p2[0] * ppm, p2[1] * ppm, stroke=S["line"], stroke_width=lw * 0.8,
+                                    stroke_dasharray="5 4", stroke_dashoffset=f"{-cum:.2f}", stroke_linecap="butt"),
+                              boxes=[(x, y, za + oa, x, y, zb + ob)])
+                    cum += float(np.linalg.norm((p2[1] - p2[0]) * ppm))
             for w in (r["walls"] if draw_walls else []):   # balustrades
                 a, b = np.array(w["a"]), np.array(w["b"])
                 quad = np.array([[*a, w["z0"] + o0], [*b, w["z1"] + o1], [*b, w["z1"] + o1 + stairs_wall_height],
@@ -837,6 +868,10 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         # straight runs (same direction, same level flag) in floor-relative coordinates
         runs_: list[list] = []        # [a3, b3, flag]
         for (p0, l0), (p1, l1) in zip(zip(pts[:-1], lv[:-1]), zip(pts[1:], lv[1:])):
+            if l0 == -9:                    # pen up: no segment out of a break point
+                continue
+            if l1 == -9:
+                l1 = l0
             if not (l0 >= 0 or path_on_stairs) and not (l1 >= 0):
                 continue
             flag = l0 if l0 == l1 else (max(l0, l1) if min(l0, l1) >= 0 else -1)

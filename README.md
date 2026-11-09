@@ -244,8 +244,14 @@ sign was made with
 
 ```bash
 gsu idealize --theme mono --title "Route to G29" --end-label G29 \
-    --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4
+    --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4 \
+    --iso-azimuth 120 --shaft-lines up,both --corridor-max 6 --break-gap 0.8
 ```
+
+`--shaft-lines up,both` draws dashed verticals at the four corners of each stair block
+(the stairwell), running `--shaft-ext` metres past the stair's top ("up"), bottom ("down")
+or both; `--corridor-max 6` draws a longer corridor at 6 m with a zig-zag break mark in
+the middle and a `--break-gap` in slab and route, sliding everything beyond it closer.
 
 Drawing rules: touching coplanar surfaces (slabs, landings, the top tread of a flight)
 are merged into one outline; the surfaces in a level are ordered for drawing by

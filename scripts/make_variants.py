@@ -25,7 +25,7 @@ HERE = Path(__file__).resolve().parent
 VARIANTS: list[tuple[str, dict, dict]] = [
     # name, IdealConfig overrides, view overrides
     ("a1_az-45_isometric", {}, {"azimuth_deg": -45}),
-    ("a2_az-60_base", {}, {"azimuth_deg": -60}),
+    ("a2_az-60_front", {}, {"azimuth_deg": -60}),
     ("a3_az-70", {}, {"azimuth_deg": -70}),
     ("a4_az-75_second_stair_reads", {}, {"azimuth_deg": -75}),
     ("a5_az-90_frontal", {}, {"azimuth_deg": -90}),
@@ -37,7 +37,7 @@ VARIANTS: list[tuple[str, dict, dict]] = [
     # from the Start side, looking along the route the way a reader at the sign would
     ("b1_az90_from_start", {}, {"azimuth_deg": 90}),
     ("b2_az105", {}, {"azimuth_deg": 105}),
-    ("b3_az120", {}, {"azimuth_deg": 120}),
+    ("b3_az120_sign", {}, {"azimuth_deg": 120}),
     ("b4_az135", {}, {"azimuth_deg": 135}),
     ("b5_az150", {}, {"azimuth_deg": 150}),
     ("b6_az75_over_the_bridge", {}, {"azimuth_deg": 75}),
@@ -77,7 +77,8 @@ def main() -> None:
     # the foyer, the last running into the bridge), the bridge one straight line onto the
     # second stair, a full turn of four flights down, straight off into the antechamber
     base = IdealConfig(theme=a.theme, title=a.title, end_label=a.end_label, all_themes=False,
-                       stair_sense=["ccw", "ccw"], stair_flights=[3, 4], exit_after=[0, 4])
+                       stair_sense=["ccw", "ccw"], stair_flights=[3, 4], exit_after=[0, 4],
+                       iso_azimuth=120, shaft_lines=["up", "both"], corridor_max=6.0, break_gap=0.8)
     made = []
     for name, cfg_over, view_over in VARIANTS:
         if a.only and name not in a.only:

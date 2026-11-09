@@ -4,10 +4,13 @@ All in the locked style (black line on white, numbered markers, key below; hidde
 of the stairs as light dashed lines) and the locked geometry: both stairs anticlockwise,
 three flights up (south side, back, north side) with the walkway along the west side of
 the well running straight on as the bridge onto the first flight of the second stair, a
-full turn of four flights down, then straight off the landing into the antechamber.
-`contact_sheet.png` shows them side by side and `contact_sheet_angles.png` the angles
-alone, larger; each `*.svg` is editable (layers per level, stairs, hidden lines, path,
-labels, key).
+full turn of four flights down, then straight off the last step into a foyer the same
+size as the first. The bridge is drawn at 6 m with a break mark (it is 19 m), dashed
+verticals mark the stairwell corners (up past the first stair, up and down past the
+second), and the sign's view is azimuth 120, from behind the Start. `contact_sheet.png`
+shows everything side by side, `contact_sheet_angles.png` the front angles and
+`contact_sheet_behind.png` the views from the Start side, larger; each `*.svg` is editable
+(layers per level, stairs, hidden lines, path, labels, key).
 
 Made with `python scripts/make_variants.py --work work --out examples/walkthrough/ideal/variants`.
 
@@ -15,7 +18,7 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 | file | note |
 |---|---|
 | a1_az-45_isometric | classic 45° isometric; the corridor runs at 30° and both stairs show the same two flights foreshortened |
-| a2_az-60_base | **the sign**; corridor diagonal, start/end markers clear, the two foreshortened flights of the second stair sit at the back behind the two that read |
+| a2_az-60_front | the earlier front view; corridor diagonal, the two foreshortened flights of the second stair at the back |
 | a3_az-70 | less slant on the x axis: the fanned treads of the third flight tighten up |
 | a4_az-75_second_stair_reads | the exit flight is seen in profile with its risers, the route loops visibly round the well; the corridor is steeper on the page |
 | a5_az-90_frontal | looking straight along the corridor: a frontal axonometric, no depth on the halls — reject |
@@ -32,7 +35,7 @@ route running away up the page to G29. `contact_sheet_behind.png` shows them tog
 |---|---|
 | b1_az90_from_start | looking straight down the bridge from the first foyer; the bridge is vertical on the page, the two stairs stack above each other |
 | b2_az105 | a little to the left of the bridge; the first stair opens up, the second still partly behind the bridge |
-| b3_az120 | the natural "over the shoulder" view: foyer in front, both wells visible, G29 at the top right |
+| b3_az120_sign | **the sign**: the natural "over the shoulder" view, foyer in front, both wells visible, G29 at the top right |
 | b4_az135 | the mirror of the classic isometric from behind; most even, slightly flatter stairs |
 | b5_az150 | wide and low; the bridge nearly horizontal across the page |
 | b6_az75_over_the_bridge | from the right of the bridge; the second stair hides behind the first |
@@ -90,6 +93,5 @@ roughly 38 characters of English with spaces, 50 at a 3 px dot. The sign itself 
 dashes.
 
 ## Recommendation
-`a2_az-60_base` for the sign. If the second staircase must be read tread by tread, use
-`a4_az-75_second_stair_reads`. Add `--mid-steps 0.55:4 --entry-steps 8` if the sign should
-warn about the short flights, and `a7_exploded` where there is room for a second panel.
+`b3_az120_sign` for the sign, as chosen. `b7`/`b8` if the treads need to read more clearly,
+`a7_exploded` where there is room for a second panel.
