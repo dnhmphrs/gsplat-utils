@@ -63,10 +63,10 @@ def main() -> None:
     src = a.diagram or (a.work / "geometry" / "diagram.json")
     d = json.loads(Path(src).read_text())
     a.out.mkdir(parents=True, exist_ok=True)
-    # the locked design: both stairs anticlockwise, 3 then 4 flights, full turn on the second
-    # stair before the antechamber, the bridge in line with the top of each stair
+    # the locked design: both stairs anticlockwise, a full turn of four flights each, the
+    # bridge in line with the top of each stair, straight off the second into the antechamber
     base = IdealConfig(theme=a.theme, title=a.title, end_label=a.end_label, all_themes=False,
-                       stair_sense=["ccw", "ccw"], stair_flights=[3, 4], exit_after=[0, 4])
+                       stair_sense=["ccw", "ccw"], stair_flights=[4, 4], exit_after=[0, 4])
     made = []
     for name, cfg_over, view_over in VARIANTS:
         if a.only and name not in a.only:

@@ -243,7 +243,7 @@ sign was made with
 
 ```bash
 gsu idealize --theme mono --title "Route to G29" --end-label G29 \
-    --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4
+    --stair-sense ccw,ccw --stair-flights 4,4 --exit-after 0,4
 ```
 
 Drawing rules: touching coplanar surfaces (slabs, landings, the top tread of a flight)
