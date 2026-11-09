@@ -49,6 +49,8 @@ class IdealConfig:
     shaft_ext: float = 2.0            # how far those lines run beyond the stair's top / bottom (m)
     corridor_max: float | None = None # draw a longer corridor at this length with a break mark in the middle
     break_gap: float = 0.6            # gap in the slab and the route at the break (m); 0 = shorten without a mark
+    corridor_label: str = "Walk to the end of the corridor"   # key entry at the middle of the main corridor ("" = none)
+    solid_stairs: list = field(default_factory=list)  # per stair: 1 = treads and landings run down to the stair's lowest floor
     path_morse: str | None = None     # lay this text in Morse along the route instead of plain dashes
     morse_unit_px: float = 4.0        # length of a Morse dot on the page (px at 36 px/m)
 
@@ -57,7 +59,8 @@ class IdealConfig:
             self.corridor_width = self.flight_width
     entry_steps: int = 0              # straight flight between a lower entrance foyer and the first stair
     foyer: str = "base"               # "base": a start/end hall is a slab as deep as its stair block, flush against it,
-                                      # the Start/End in line with the first flight; "beside": the measured rectangle
+                                      # the Start/End in line with the first flight; "under": the same slab but running
+                                      # under the whole stair block; "beside": the measured rectangle
     theme: str = "light"
     all_themes: bool = True           # also write styles/iso_<theme>.svg for every theme
     label_style: str = "key"          # numbered markers + key, or "inline"
@@ -113,6 +116,7 @@ class Element:
     entry_pt: np.ndarray | None = None    # hall at a stair exit: point on its edge where the route comes in
     n_fl: int = 3                         # stairs: flights per storey actually drawn
     shaft: str = "none"                   # stairs: dashed corner verticals
+    solid: bool = False                   # stairs: treads and landings as a solid mass down to the lowest floor
     broken: bool = False                  # corridor: drawn shorter than it is, with a break mark
 
 
@@ -162,6 +166,8 @@ def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
                 e.cont = int(cfg.continue_flights[k_st])
             if k_st < len(cfg.shaft_lines):
                 e.shaft = str(cfg.shaft_lines[k_st])
+            if k_st < len(cfg.solid_stairs):
+                e.solid = bool(int(cfg.solid_stairs[k_st]))
             e.n_fl = _n_flights(e, floor.get(e.level_from, 0.0), floor.get(e.level_to, 0.0), cfg)
             els.append(e)
         elif r.get("hall"):
@@ -240,7 +246,7 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
             e.centre[k] = _snap(cp[k] + sgn * half_c - sgn * e.size[k] / 2, g)
     # start/end halls as slabs flush against their staircase: after the blocks have found
     # their final place against the corridor, so the slab really sits under the stair
-    if cfg.foyer == "base" and terminals is not None:
+    if cfg.foyer in ("base", "under") and terminals is not None:
         bases = []
         for i, e in enumerate(els):
             if e.kind != "hall" or i not in (0, len(els) - 1):
@@ -264,8 +270,12 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
                 # the slab is as deep as the stair block, runs `ext` out from the block face and one
                 # landing square into it, so the foyer ends exactly where the first flight starts
                 face = nb.centre[k] + sign * nb.size[k] / 2
-                e.size = nb.size.copy(); e.size[k] = ext + w
-                e.centre = nb.centre.copy(); e.centre[k] = face + sign * (ext - w) / 2
+                if cfg.foyer == "under":          # the slab runs under the whole stair block too
+                    e.size = nb.size.copy(); e.size[k] = ext + nb.size[k]
+                    e.centre = nb.centre.copy(); e.centre[k] = face + sign * (ext - nb.size[k]) / 2
+                else:
+                    e.size = nb.size.copy(); e.size[k] = ext + w
+                    e.centre = nb.centre.copy(); e.centre[k] = face + sign * (ext - w) / 2
                 e.base_of = nb
                 # the Start/End point sits 1.5 m in from the far end of the slab, clear of the bridge
                 t = nb.centre.copy(); t[k] = face + sign * max(ext - 1.5, ext / 2)
@@ -429,6 +439,8 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
     dz = (z1 - z0) / n_fl
     flights, landings, route = [], [], []
     thick = []
+    landing_thick: list[float] = []
+    z_base, z_hi = min(z0, z1), max(z0, z1)
     seen_landings = set()
     z = z0
     n_route = int(e.exit_after) if e.exit_after and 0 < e.exit_after < n_fl else n_fl
@@ -452,13 +464,15 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
             b0 = r0 + (r1 - r0) * t0; b1 = r0 + (r1 - r0) * t1
             ztop = z + (k + 1) * rise
             flights.append(np.array([np.r_[a0, ztop], np.r_[a1, ztop], np.r_[b1, ztop], np.r_[b0, ztop]]))
-            thick.append(abs(rise))
-        thick[-1] = cfg.slab          # the top tread is the landing surface: merge with it
+            thick.append(max(ztop - z_base, cfg.slab) if e.solid else abs(rise))
+        if not (e.solid and abs(z + dz - z_hi) > 1e-6):
+            thick[-1] = cfg.slab      # the top tread is the landing surface: merge with it
         for cc, zz in ((c0, z), (c1, z + dz)):
             key = (cc, round(zz, 3))
             if key not in seen_landings:
                 seen_landings.add(key)
                 landings.append(_rect(corner_xy[cc], np.array([w, w]), zz))
+                landing_thick.append(max(zz - z_base, cfg.slab) if (e.solid and abs(zz - z_hi) > 1e-6) else cfg.slab)
         if fi < n_route:
             route.append(np.r_[p0, z + max(rise, 0)]); route.append(np.r_[p1, z + dz + max(-rise, 0)])
         z += dz
@@ -492,6 +506,7 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
             if key not in seen_landings:
                 seen_landings.add(key)
                 landings.append(_rect(corner_xy[cc], np.array([w, w]), zz))
+                landing_thick.append(cfg.slab)
     # continue along the gallery (at z1) from the last landing to the exit side, the short way round
     def gallery_walk(sense_):
         last_side = order[n_route - 1]
@@ -570,6 +585,7 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
                 walkways.append(np.array([np.r_[a2e + nn * w / 2, zz], np.r_[b2e + nn * w / 2, zz],
                                           np.r_[b2e - nn * w / 2, zz], np.r_[a2e - nn * w / 2, zz]]))
     e._z_exit = z_exit
+    e._landing_thick = landing_thick + [cfg.slab] * len(walkways)
     return flights, landings + walkways, atrium, (route, route_gallery), thick
 
 
@@ -826,6 +842,10 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                     labels.append({"text": f"{abs(n1)} steps {'up' if rise > 0 else 'down'}", "xyz": [*(0.5 * (fa + fb)), zz - rise],
                                    "level": e.level, "floor_z": float(zz - rise), "kind": "stairs"})
             z_bias = zz - floor[e.level]
+            if cfg.corridor_label and corridor_idx and i == corridor_idx[0]:
+                mid = e.a + dv * L * 0.5
+                labels.append({"text": cfg.corridor_label, "xyz": [float(mid[0]), float(mid[1]), float(z)], "level": e.level,
+                               "floor_z": float(z), "kind": "corridor"})
         else:
             z0, z1 = floor.get(e.level_from, 0.0) + z_bias, floor.get(e.level_to, 0.0)
             z_bias = 0.0
@@ -852,7 +872,7 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
             if e.exit_after and abs(e._z_exit - z1) > 1e-6:
                 exit_level_z = float(e._z_exit)
             quads = flights + landings
-            quad_thickness = thick + [cfg.slab] * len(landings)
+            quad_thickness = thick + list(getattr(e, "_landing_thick", [cfg.slab] * len(landings)))
             runs.append({"id": rid, "kind": "stairs", "hall": False, "level": -1, "level_from": e.level_from, "level_to": e.level_to,
                          "pieces": [{"p0": [*q[0][:2], q[0][2] + cam_h], "p1": [*q[1][:2], q[1][2] + cam_h], "left": cfg.flight_width / 2,
                                      "right": cfg.flight_width / 2, "axis": "", "length": float(np.linalg.norm(q[1][:2] - q[0][:2])),

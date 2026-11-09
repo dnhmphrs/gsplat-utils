@@ -4203,6 +4203,17 @@
       "kind": "stairs"
     },
     {
+      "text": "Walk to the end of the corridor",
+      "xyz": [
+        9.625,
+        -3.0,
+        4.25
+      ],
+      "level": 1,
+      "floor_z": 4.25,
+      "kind": "corridor"
+    },
+    {
       "text": "Stairs down one floor",
       "xyz": [
         9.625,
@@ -4246,6 +4257,8 @@
     "shaft_ext": 2.0,
     "corridor_max": 9.0,
     "break_gap": 0.0,
+    "corridor_label": "Walk to the end of the corridor",
+    "solid_stairs": [],
     "path_morse": null,
     "morse_unit_px": 4.0,
     "entry_steps": 0,

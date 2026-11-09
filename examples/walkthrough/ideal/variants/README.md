@@ -1,7 +1,7 @@
 # Route to G29 — variants and critique
 
-All in the locked style (black line on white, numbered markers, key below; hidden edges
-of the stairs as light dashed lines) and the locked geometry: both stairs anticlockwise,
+All in the locked style (black line on white, numbered markers, five-step key below;
+hidden edges of the stairs as light dashed lines) and the locked geometry: both stairs anticlockwise,
 three flights up (south side, back, north side) with the walkway along the west side of
 the well running straight on as the bridge onto the first flight of the second stair, a
 full turn of four flights down, then straight off the last step into a foyer the same
@@ -55,6 +55,7 @@ route running away up the page to G29. `contact_sheet_behind.png` shows them tog
 | g9_foyer_beside | halls as separate rooms beside the stairs: the earlier, weaker reading |
 | g10_landing_L | the earlier reading of the bridge: it meets the near corner of each stair and the top landing runs the full side as an L |
 | g13_landing_inline | flights reordered so the last one of the first stair points straight down the bridge (back, north side, west side) |
+| g14_solid_stair_over_foyer | the start foyer runs under the first stair and the stair is a solid stepped mass down to it; the second stair carries on down two flights beneath the end foyer (`route_to_g29_solid.*` one folder up) |
 | g11_no_hidden_lines | hidden edges left out: the two foreshortened flights of the second stair fall back to a fan of plates |
 | g12_hidden_lines_all | hidden edges of the slabs too (under the bridge, under the stairs): more information, more clutter |
 

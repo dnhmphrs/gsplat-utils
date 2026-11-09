@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="855" height="754" viewBox="-216.6 -340.3 855.3 753.9" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
-<rect x="-216.6" y="-340.3" width="855.3" height="753.9" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="855" height="776" viewBox="-216.6 -340.3 855.3 775.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+<rect x="-216.6" y="-340.3" width="855.3" height="775.5" fill="#ffffff"/>
 <g id="level-L0">
 <path d="M -180.65,193.09 L 76.56,255.85 L 162.06,193.26 L 180.25,197.7 L 202.75,181.23 L -72.65,114.03 Z M 89.35,-4.55 L 346.56,58.21 L 454.56,-20.85 L 197.35,-83.61 Z" fill="#ffffff" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-180.65,193.09 76.56,255.85 76.56,260.74 -180.65,197.98" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="76.56,255.85 162.06,193.26 162.06,198.16 76.56,260.74" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="162.06,193.26 180.25,197.7 180.25,202.59 162.06,198.16" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="180.25,197.7 202.75,181.23 202.75,186.12 180.25,202.59" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="89.35,-4.55 346.56,58.21 346.56,63.1 89.35,0.34" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="346.56,58.21 454.56,-20.85 454.56,-15.95 346.56,63.1" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
 <line x1="147.37" y1="-3.33" x2="153.23" y2="-1.9" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
@@ -310,12 +310,15 @@
 <line x1="357.81" y1="49.97" x2="357.81" y2="7.56" stroke="#000000" stroke-width="1.1"/>
 <circle cx="357.81" cy="-1.37" r="8.93" fill="#000000" stroke="#ffffff" stroke-width="1.1"/>
 <text x="357.81" y="3.82" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
+<line x1="246.08" y1="-123.8" x2="246.08" y2="-166.22" stroke="#000000" stroke-width="1.1"/>
+<circle cx="246.08" cy="-175.14" r="8.93" fill="#000000" stroke="#ffffff" stroke-width="1.1"/>
+<text x="246.08" y="-169.96" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
 <line x1="142.58" y1="-48.04" x2="142.58" y2="-90.45" stroke="#000000" stroke-width="1.1"/>
 <circle cx="142.58" cy="-99.38" r="8.93" fill="#000000" stroke="#ffffff" stroke-width="1.1"/>
-<text x="142.58" y="-94.2" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
+<text x="142.58" y="-94.2" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
 <line x1="-37.13" y1="133.68" x2="-37.13" y2="91.26" stroke="#000000" stroke-width="1.1"/>
 <circle cx="-37.13" cy="82.34" r="8.93" fill="#000000" stroke="#ffffff" stroke-width="1.1"/>
-<text x="-37.13" y="87.52" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
+<text x="-37.13" y="87.52" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">5</text>
 </g>
 <text x="-202.25" y="-318.74" font-size="18.72" fill="#000000" font-weight="700">Route to G29  ·  exploded</text>
 <g id="key">
@@ -328,9 +331,12 @@
 <text x="-174.31" y="354.71" font-size="14.4" fill="#000000" font-weight="500">Stairs up one floor</text>
 <circle cx="-193.32" cy="371.12" r="8.93" fill="#000000"/>
 <text x="-193.32" y="376.31" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
-<text x="-174.31" y="376.31" font-size="14.4" fill="#000000" font-weight="500">Stairs down one floor</text>
+<text x="-174.31" y="376.31" font-size="14.4" fill="#000000" font-weight="500">Walk to the end of the corridor</text>
 <circle cx="-193.32" cy="392.72" r="8.93" fill="#000000"/>
 <text x="-193.32" y="397.91" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
-<text x="-174.31" y="397.91" font-size="14.4" fill="#000000" font-weight="500">G29</text>
+<text x="-174.31" y="397.91" font-size="14.4" fill="#000000" font-weight="500">Stairs down one floor</text>
+<circle cx="-193.32" cy="414.32" r="8.93" fill="#000000"/>
+<text x="-193.32" y="419.51" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">5</text>
+<text x="-174.31" y="419.51" font-size="14.4" fill="#000000" font-weight="500">G29</text>
 </g>
 </svg>

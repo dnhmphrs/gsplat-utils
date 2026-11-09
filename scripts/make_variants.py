@@ -55,6 +55,7 @@ VARIANTS: list[tuple[str, dict, dict]] = [
     ("g9_foyer_beside", {"foyer": "beside"}, {}),
     ("g10_landing_L", {"top_landing": "L"}, {}),
     ("g13_landing_inline", {"top_landing": "inline"}, {}),
+    ("g14_solid_stair_over_foyer", {"foyer": "under", "solid_stairs": [1, 0], "continue_flights": [0, 2]}, {}),
     ("g11_no_hidden_lines", {"hidden_lines": "none"}, {}),
     ("g12_hidden_lines_all", {"hidden_lines": "all"}, {}),
 ]

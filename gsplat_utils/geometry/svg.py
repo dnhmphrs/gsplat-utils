@@ -188,7 +188,7 @@ def write_plan_svg(path, diagram: dict, level_id: int | None, bounds: tuple[floa
         if level_id is not None and lb.get("level", level_id) not in (level_id, -1):
             continue
         p = P(lb["xyz"][:2])
-        if lb.get("kind") == "stairs":
+        if lb.get("kind") in ("stairs", "corridor"):
             out.append(_text((p[0] + fs * 0.3, p[1] + fs * 0.35), lb["text"], fs * 0.8, fill=PALETTE["muted"], font_weight="500"))
             continue
         out.append(f'<circle cx="{_fmt(p[0])}" cy="{_fmt(p[1])}" r="{_fmt(fs * 0.35)}" fill="{PALETTE["label_dot"]}"/>')
@@ -724,7 +724,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             for quad, th in zip(quads, thick):
                 offs = np.array([off_at(z) for z in quad[:, 2]])
                 layer = stairs_layer_for_z(float(quad[:, 2].min()))
-                if is_steps and abs(th - slab) < 1e-6 and np.ptp(quad[:, 2]) <= 1e-6:
+                if is_steps and (abs(th - slab) < 1e-6 or th >= 0.3) and np.ptp(quad[:, 2]) <= 1e-6:
                     # landing / walkway: merge with the floor it belongs to
                     zq = float(quad[0, 2])
                     lid = r["level_to"] if abs(zq - (z_hi if r["level_to"] >= 0 and at_hi(r) else z_lo)) < 1e-6 else -1
@@ -926,7 +926,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         p = np.array(lb["xyz"], float)
         off = lvl_off(lb.get("level", 0)) if lb.get("level", 0) >= 0 else off_for_z(lb.get("floor_z", p[2]))
         base = p.copy(); base[2] = lb.get("floor_z", p[2])
-        is_stairs = lb.get("kind") == "stairs"
+        is_stairs = lb.get("kind") in ("stairs", "corridor")
         if label_style == "key":
             top = base.copy(); top[2] += 1.3
             pb, _ = P(base, off); pt, _ = P(top, off)

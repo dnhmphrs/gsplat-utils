@@ -68,6 +68,7 @@
 <line x1="0" y1="40" x2="640" y2="40" stroke="#f0eee9" stroke-width="1"/>
 <line x1="0" y1="0" x2="640" y2="0" stroke="#f0eee9" stroke-width="1"/>
 <polyline points="365,85 365,275 365,275 365,275 365,300 365,660 365,685 365,685 365,685" fill="none" stroke="#d9482b" stroke-width="2" stroke-dasharray="6 4" stroke-linejoin="round"/>
+<text x="369.2" y="484.9" font-size="11.2" fill="#777777" font-weight="500">Walk to the end of the corridor</text>
 <text x="369.2" y="714.9" font-size="11.2" fill="#777777" font-weight="500">Stairs down one floor</text>
 <line x1="20" y1="936" x2="220" y2="936" stroke="#333333" stroke-width="3"/>
 <text x="20" y="930" font-size="12.6" fill="#333333">5 m</text>

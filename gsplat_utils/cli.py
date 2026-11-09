@@ -124,7 +124,8 @@ def cmd_idealize(a: argparse.Namespace) -> None:
                       top_landing=a.top_landing, hidden_lines=a.hidden_lines, foyer_ext=a.foyer_ext or None,
                       path_morse=a.path_morse, morse_unit_px=a.morse_unit_px,
                       shaft_lines=[x.strip() for x in a.shaft_lines.split(",") if x.strip()], shaft_ext=a.shaft_ext,
-                      corridor_max=a.corridor_max, break_gap=a.break_gap)
+                      corridor_max=a.corridor_max, break_gap=a.break_gap, corridor_label=a.corridor_label,
+                      solid_stairs=[x.strip() for x in a.solid_stairs.split(",") if x.strip()])
     run_idealize(Workspace(a.work), cfg, diagram_path=a.diagram, out_dir=a.out)
 
 
@@ -383,7 +384,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--title", default=None)
     p.add_argument("--theme", default="light", help="light | dark | blueprint | mono | paper | slate")
     p.add_argument("--single-theme", dest="all_themes", action="store_false", help="do not write styles/ variants")
-    p.add_argument("--foyer", choices=["base", "beside"], default="base",
+    p.add_argument("--foyer", choices=["base", "under", "beside"], default="base",
                    help="start/end hall as the slab under its staircase (base) or a separate rectangle")
     p.add_argument("--labels-inline", dest="label_style", action="store_const", const="inline", default="key",
                    help="write label text on the drawing instead of numbered markers + key")
@@ -416,6 +417,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--shaft-ext", type=float, default=2.0, help="how far the shaft lines run beyond the stair's top / bottom, m")
     p.add_argument("--corridor-max", type=float, default=None, help="draw a longer corridor at this length with a break mark in the middle, m")
     p.add_argument("--break-gap", type=float, default=0.6, help="gap in slab and route at the break mark, m; 0 = shorten the corridor without a mark")
+    p.add_argument("--corridor-label", default="Walk to the end of the corridor", help="key entry at the middle of the main corridor (\"\" = none)")
+    p.add_argument("--solid-stairs", default="", help="per stair: 1 = treads and landings as a solid mass down to the stair's lowest floor, e.g. 1,0")
     p.add_argument("--hidden-lines", choices=["stairs", "all", "none"], default="stairs",
                    help="draw edges hidden behind other surfaces as light dashed lines: of the stairs only, of everything, or not at all")
     p.add_argument("--landing", dest="top_landing", choices=["straight", "inline", "L"], default="straight",

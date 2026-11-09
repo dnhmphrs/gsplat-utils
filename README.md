@@ -248,6 +248,12 @@ gsu idealize --theme mono --title "Route to G29" --end-label G29 \
     --iso-azimuth 120 --corridor-max 9 --break-gap 0
 ```
 
+The key has five steps: Start, the first stair, `--corridor-label` at the middle of the
+corridor ("Walk to the end of the corridor"; "" drops it), the second stair, the end.
+`--foyer under` runs the start foyer under the whole stair block (as the real atrium does)
+and `--solid-stairs 1,0` builds that stair as a solid stepped mass from each tread down to
+the foyer floor instead of floating treads; with `--continue 0,2` the second stair carries
+on down two flights past the end foyer, mostly hidden beneath it.
 `--corridor-max 9` draws a longer corridor at 9 m, sliding everything beyond it closer;
 with a `--break-gap` above zero the shortened corridor gets a zig-zag break mark and a
 gap in slab and route. `--shaft-lines up,both` draws dashed verticals at the four corners
