@@ -815,7 +815,9 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                 path_pts.append(np.r_[p[:2], p[2] + cam_h]); path_lv.append(-2 if exit_level_z is not None else e.level_to)
             # marker where you start climbing / descending: the entry corner of the flights
             start_pt = route[3] if (entry is not None and len(route) > 3) else route[0]
-            labels.append({"text": f"Stairs {'up' if z1 > z0 else 'down'}", "xyz": [float(start_pt[0]), float(start_pt[1]), float(z0)],
+            n_floors = abs(int(e.level_to) - int(e.level_from)) if (e.level_to >= 0 and e.level_from >= 0) else 1
+            floors = {1: "one floor", 2: "two floors", 3: "three floors"}.get(n_floors, f"{n_floors} floors")
+            labels.append({"text": f"Stairs {'up' if z1 > z0 else 'down'} {floors}", "xyz": [float(start_pt[0]), float(start_pt[1]), float(z0)],
                            "level": int(e.level_from), "floor_z": float(z0), "kind": "stairs"})
     # -2 marks route points on a landing-level hall created after a part-way exit
     if extra_levels:

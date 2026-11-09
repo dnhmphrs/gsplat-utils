@@ -325,10 +325,10 @@
 <text x="-215.36" y="456.76" font-size="14.4" fill="#000000" font-weight="500">Start</text>
 <circle cx="-234.36" cy="473.17" r="8.93" fill="#000000"/>
 <text x="-234.36" y="478.36" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
-<text x="-215.36" y="478.36" font-size="14.4" fill="#000000" font-weight="500">Stairs up</text>
+<text x="-215.36" y="478.36" font-size="14.4" fill="#000000" font-weight="500">Stairs up one floor</text>
 <circle cx="-234.36" cy="494.77" r="8.93" fill="#000000"/>
 <text x="-234.36" y="499.96" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
-<text x="-215.36" y="499.96" font-size="14.4" fill="#000000" font-weight="500">Stairs down</text>
+<text x="-215.36" y="499.96" font-size="14.4" fill="#000000" font-weight="500">Stairs down one floor</text>
 <circle cx="-234.36" cy="516.37" r="8.93" fill="#000000"/>
 <text x="-234.36" y="521.56" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
 <text x="-215.36" y="521.56" font-size="14.4" fill="#000000" font-weight="500">G29</text>

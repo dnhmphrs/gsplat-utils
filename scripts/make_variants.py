@@ -33,8 +33,17 @@ VARIANTS: list[tuple[str, dict, dict]] = [
     ("a7_exploded", {}, {"azimuth_deg": -60, "explode_m": 3.0}),
     ("a8_el35_true_isometric", {}, {"azimuth_deg": -45, "elevation_deg": 35.264}),
     ("a9_az-30_wide", {}, {"azimuth_deg": -30}),
-    ("a10_az120_from_behind", {}, {"azimuth_deg": 120}),
     ("a11_el20_lower", {}, {"azimuth_deg": -60, "elevation_deg": 20}),
+    # from the Start side, looking along the route the way a reader at the sign would
+    ("b1_az90_from_start", {}, {"azimuth_deg": 90}),
+    ("b2_az105", {}, {"azimuth_deg": 105}),
+    ("b3_az120", {}, {"azimuth_deg": 120}),
+    ("b4_az135", {}, {"azimuth_deg": 135}),
+    ("b5_az150", {}, {"azimuth_deg": 150}),
+    ("b6_az75_over_the_bridge", {}, {"azimuth_deg": 75}),
+    ("b7_az120_el30", {}, {"azimuth_deg": 120, "elevation_deg": 30}),
+    ("b8_az120_el35", {}, {"azimuth_deg": 120, "elevation_deg": 35}),
+    ("b9_az105_el30", {}, {"azimuth_deg": 105, "elevation_deg": 30}),
     ("g1_wells_measured", {"void_mode": "measured"}, {}),
     ("g2_exit_one_flight_down", {"exit_after": [0, 1], "continue_flights": [0, 3]}, {}),
     ("g3_corridor_2.0m", {"corridor_width": 2.0}, {}),
@@ -113,6 +122,7 @@ def main() -> None:
             print("contact sheet:", a.out / name, sheet.size)
         sheet_of(made, "contact_sheet.png")
         sheet_of([s for s in made if s.stem.startswith("a")], "contact_sheet_angles.png", cols=2, cw=900, ch=720)
+        sheet_of([s for s in made if s.stem.startswith("b")], "contact_sheet_behind.png", cols=2, cw=900, ch=720)
 
 
 if __name__ == "__main__":

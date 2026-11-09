@@ -23,8 +23,21 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 | a7_exploded | levels pulled apart 3 m; still the fastest way to explain "up, across, down" |
 | a8_el35_true_isometric | the textbook 35.26° isometric at 45°; every axis equally foreshortened, flatter stairs |
 | a9_az-30_wide | wide landscape; the bridge nearly horizontal, both stairs seen side-on |
-| a10_az120_from_behind | from the far side; Start at the front, G29 at the back, the route reads bottom-to-top |
 | a11_el20_lower | lower still; most "model on a table", the fewest visible treads |
+
+## From the Start side (eye point 25° unless noted)
+Seen the way a reader standing at the sign would see the building: Start nearest, the
+route running away up the page to G29. `contact_sheet_behind.png` shows them together.
+| file | note |
+|---|---|
+| b1_az90_from_start | looking straight down the bridge from the first foyer; the bridge is vertical on the page, the two stairs stack above each other |
+| b2_az105 | a little to the left of the bridge; the first stair opens up, the second still partly behind the bridge |
+| b3_az120 | the natural "over the shoulder" view: foyer in front, both wells visible, G29 at the top right |
+| b4_az135 | the mirror of the classic isometric from behind; most even, slightly flatter stairs |
+| b5_az150 | wide and low; the bridge nearly horizontal across the page |
+| b6_az75_over_the_bridge | from the right of the bridge; the second stair hides behind the first |
+| b7_az120_el30 / b8_az120_el35 | the b3 view from higher up; more tread, more plan-like |
+| b9_az105_el30 | b2 from higher up |
 
 ## Geometry
 | file | note |

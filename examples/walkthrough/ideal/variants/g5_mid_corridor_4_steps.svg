@@ -362,13 +362,13 @@
 <text x="-354.31" y="464.87" font-size="14.4" fill="#000000" font-weight="500">Start</text>
 <circle cx="-373.32" cy="481.28" r="8.93" fill="#000000"/>
 <text x="-373.32" y="486.47" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
-<text x="-354.31" y="486.47" font-size="14.4" fill="#000000" font-weight="500">Stairs up</text>
+<text x="-354.31" y="486.47" font-size="14.4" fill="#000000" font-weight="500">Stairs up one floor</text>
 <circle cx="-373.32" cy="502.88" r="8.93" fill="#000000"/>
 <text x="-373.32" y="508.07" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
 <text x="-354.31" y="508.07" font-size="14.4" fill="#000000" font-weight="500">4 steps up</text>
 <circle cx="-373.32" cy="524.48" r="8.93" fill="#000000"/>
 <text x="-373.32" y="529.67" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
-<text x="-354.31" y="529.67" font-size="14.4" fill="#000000" font-weight="500">Stairs down</text>
+<text x="-354.31" y="529.67" font-size="14.4" fill="#000000" font-weight="500">Stairs down one floor</text>
 <circle cx="-373.32" cy="546.08" r="8.93" fill="#000000"/>
 <text x="-373.32" y="551.27" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">5</text>
 <text x="-354.31" y="551.27" font-size="14.4" fill="#000000" font-weight="500">G29</text>

@@ -349,7 +349,7 @@
 <circle cx="217.13" cy="-316.78" r="8.93" fill="#000000" stroke="#ffffff" stroke-width="1.1"/>
 <text x="217.13" y="-311.6" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
 </g>
-<text x="-624.25" y="-588.27" font-size="18.72" fill="#000000" font-weight="700">Route to G29  ·  az120 from behind</text>
+<text x="-624.25" y="-588.27" font-size="18.72" fill="#000000" font-weight="700">Route to G29  ·  az120</text>
 <g id="key">
 <line x1="-624.25" y1="128.25" x2="382.25" y2="128.25" stroke="#000000" stroke-width="1.1"/>
 <circle cx="-615.33" cy="145.53" r="8.93" fill="#000000"/>
@@ -357,10 +357,10 @@
 <text x="-596.32" y="150.71" font-size="14.4" fill="#000000" font-weight="500">Start</text>
 <circle cx="-615.33" cy="167.13" r="8.93" fill="#000000"/>
 <text x="-615.33" y="172.31" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
-<text x="-596.32" y="172.31" font-size="14.4" fill="#000000" font-weight="500">Stairs up</text>
+<text x="-596.32" y="172.31" font-size="14.4" fill="#000000" font-weight="500">Stairs up one floor</text>
 <circle cx="-615.33" cy="188.73" r="8.93" fill="#000000"/>
 <text x="-615.33" y="193.91" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
-<text x="-596.32" y="193.91" font-size="14.4" fill="#000000" font-weight="500">Stairs down</text>
+<text x="-596.32" y="193.91" font-size="14.4" fill="#000000" font-weight="500">Stairs down one floor</text>
 <circle cx="-615.33" cy="210.33" r="8.93" fill="#000000"/>
 <text x="-615.33" y="215.51" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
 <text x="-596.32" y="215.51" font-size="14.4" fill="#000000" font-weight="500">G29</text>

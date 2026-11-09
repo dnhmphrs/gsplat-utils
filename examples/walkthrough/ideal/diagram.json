@@ -4190,7 +4190,7 @@
       "role": "end"
     },
     {
-      "text": "Stairs up",
+      "text": "Stairs up one floor",
       "xyz": [
         10.25,
         2.125,
@@ -4201,7 +4201,7 @@
       "kind": "stairs"
     },
     {
-      "text": "Stairs down",
+      "text": "Stairs down one floor",
       "xyz": [
         9.625,
         -18.75,
