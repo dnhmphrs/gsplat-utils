@@ -360,13 +360,14 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         return True
 
     def layer_rank_of(layer: str) -> int:
-        # level-L1 above stairs-L0 above level-L0 ...
+        # a merged surface belongs to its floor's layer when any member is a floor slab;
+        # only groups made of stair landings alone stay in a stairs layer
         kind, _, num = layer.partition("-L")
         try:
             n = int(num)
         except ValueError:
             n = 0
-        return n * 2 + (1 if kind == "stairs" else 0) + (1 if kind == "level" else 0) * 0
+        return n * 2 + (1 if kind == "level" else 0)
 
     for r in diagram["runs"]:
         layer = run_layer(r)
@@ -471,7 +472,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         allp = np.vstack(loops)
         p3 = np.c_[allp, np.full(len(allp), z)]
         p2all, dall = view.project(p3); all_pts.append(p2all)
-        depth = float(dall.mean())
+        depth = float(dall.min())      # farthest point: whatever rests on the slab is drawn after it
         d_parts = []
         for lp in loops:
             p2, _ = view.project(np.c_[lp, np.full(len(lp), z)])
@@ -493,25 +494,51 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                 faces.add(g["layer"], float(ds.mean()) - 0.02,
                           poly(p2s * ppm, _side_tone(nrm, view, S["floor_side_a"], S["floor_side_b"])))
 
-    # path: one dashed polyline per continuous stretch; on stairs it climbs with the flights
+    # path: drawn as short segments inside the level / stairs layers, depth-sorted with the
+    # geometry, so a higher surface drawn later hides the stretch of route beneath it.
+    # The dash pattern stays continuous across segments via stroke-dashoffset.
     if show_path:
         pts = np.array(diagram["path"]["points"])
         lv = diagram["path"].get("level") or [0] * len(pts)
-        chunk = []
-        for p, l in list(zip(pts, lv)) + [(None, None)]:
-            visible = p is not None and (l >= 0 or path_on_stairs)
-            if visible:
-                chunk.append((p, l))
+        stairs_runs = [r for r in diagram["runs"] if r["kind"] == "stairs"]
+        stairs_boxes = []
+        for r in stairs_runs:
+            q = np.vstack([np.array(qq) for qq in r["quads"]]) if r.get("quads") else np.vstack([np.array(r["left_boundary"]), np.array(r["right_boundary"])])
+            stairs_boxes.append((q[:, 0].min() - 0.5, q[:, 1].min() - 0.5, q[:, 0].max() + 0.5, q[:, 1].max() + 0.5, run_layer(r)))
+
+        def layer_for(p, l):
+            if l >= 0:
+                return f"level-L{l}"
+            for x0, y0, x1, y1, ly in stairs_boxes:
+                if x0 <= p[0] <= x1 and y0 <= p[1] <= y1:
+                    return ly
+            return "path"
+        dash_a, dash_b = 6.0, 4.0
+        period = dash_a + dash_b
+        cum = 0.0
+        step_m = 0.4
+        for (p0, l0), (p1, l1) in zip(zip(pts[:-1], lv[:-1]), zip(pts[1:], lv[1:])):
+            if not (l0 >= 0 or path_on_stairs) and not (l1 >= 0):
                 continue
-            if len(chunk) >= 2:
-                pp = np.array([c[0] for c in chunk], float)
-                zf = pp[:, 2] - cam_h
-                offs = np.array([lvl_off(c[1]) if c[1] >= 0 else off_for_z(z) for c, z in zip(chunk, zf)])
-                pp[:, 2] = zf + 0.06 + offs
-                p2, d = P(pp)
-                faces.add("path", 0.0, _polyline(p2, fill="none", stroke=S["path"], stroke_width=lw * 1.8,
-                                                 stroke_dasharray="6 4", stroke_linejoin="round", stroke_linecap="round"))
-            chunk = []
+            z0f, z1f = p0[2] - cam_h, p1[2] - cam_h
+            o0 = lvl_off(l0) if l0 >= 0 else off_for_z(z0f)
+            o1 = lvl_off(l1) if l1 >= 0 else off_for_z(z1f)
+            a = np.array([p0[0], p0[1], z0f + 0.06 + o0]); b = np.array([p1[0], p1[1], z1f + 0.06 + o1])
+            L = float(np.linalg.norm(b - a))
+            if L < 1e-6:
+                continue
+            n_sub = max(1, int(np.ceil(L / step_m)))
+            for k in range(n_sub):
+                sa = a + (b - a) * (k / n_sub); sb = a + (b - a) * ((k + 1) / n_sub)
+                p2, d = view.project(np.vstack([sa, sb]))
+                all_pts.append(p2)
+                seg_px = float(np.linalg.norm((p2[1] - p2[0]) * ppm))
+                ly = layer_for(0.5 * (sa + sb), l0 if l0 == l1 else max(l0, l1) if min(l0, l1) >= 0 else -1)
+                faces.add(ly, float(d.mean()) + 0.04,
+                          _line(p2[0] * ppm, p2[1] * ppm, stroke=S["path"], stroke_width=lw * 1.8,
+                                stroke_dasharray=f"{dash_a:g} {dash_b:g}", stroke_dashoffset=f"{-(cum % period):.2f}",
+                                stroke_linecap="butt"))
+                cum += seg_px
     # labels
     fs = max(11.0, 0.4 * ppm)
     key_rows = []

@@ -225,7 +225,10 @@ lines, `blueprint`, `mono` line art, `paper`, `slate`; `--theme` picks the main 
 `--iso-azimuth` / `--iso-elevation` turn the view). Geometry knobs: `--wells measured`
 (each stair its own well size), `--flights 2` (dog-leg), `--gallery upper|both|none`,
 `--mid-steps 0.55:4` (a short flight inside the corridor), `--entry-steps 8` (a lower
-entrance foyer with a straight flight up to the stair), `--corridor-width`, `--flight-width`.
+entrance foyer with a straight flight up to the stair), `--stair-sense ccw,cw` (turn
+direction per stair), `--corridor-width`, `--flight-width`. Touching coplanar surfaces are
+merged into one outline, and the route is drawn in depth order so it disappears where it
+passes under a higher floor.
 `python scripts/make_variants.py --work work --out variants/` renders a labelled contact
 sheet of angle and geometry variants. This is the drawing to hand to the sign designer;
 the measured one is the evidence behind it.

@@ -35,6 +35,7 @@ class IdealConfig:
     void_lines: bool = False          # wireframe box of the open well
     iso_elevation: float = 25.0
     mid_steps: list = field(default_factory=list)   # [(fraction_along_corridor, n_steps)] short flights inside corridors
+    stair_sense: list = field(default_factory=list)  # per stair in route order: "ccw" | "cw" | "auto" (measured)
     entry_steps: int = 0              # straight flight between a lower entrance foyer and the first stair
     foyer: str = "base"               # "base": a start/end hall is the floor slab under its staircase; "beside": separate rectangle
     theme: str = "light"
@@ -121,6 +122,9 @@ def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
             else:
                 e.centre = q.mean(axis=0)
             e.size = e.void_size + 2 * cfg.flight_width
+            k_st = sum(1 for x in els if x.kind == "stairs")
+            if k_st < len(cfg.stair_sense) and cfg.stair_sense[k_st] in ("cw", "ccw"):
+                e.sense = -1 if cfg.stair_sense[k_st] == "cw" else 1
             els.append(e)
         elif r.get("hall"):
             e = Element("hall", r, level=r["level"])
@@ -572,8 +576,10 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                 path_pts.append(np.r_[p[:2], p[2] + cam_h]); path_lv.append(-1)
             for p in [route[-1]] + gallery:
                 path_pts.append(np.r_[p[:2], p[2] + cam_h]); path_lv.append(e.level_to)
-            labels.append({"text": f"Stairs {'up' if z1 > z0 else 'down'}", "xyz": [*e.centre, min(z0, z1)],
-                           "level": int(min(e.level_from, e.level_to)), "floor_z": float(min(z0, z1)), "kind": "stairs"})
+            # marker where you start climbing / descending: the entry corner of the flights
+            start_pt = route[2] if (entry is not None and len(route) > 2) else route[0]
+            labels.append({"text": f"Stairs {'up' if z1 > z0 else 'down'}", "xyz": [float(start_pt[0]), float(start_pt[1]), float(z0)],
+                           "level": int(e.level_from), "floor_z": float(z0), "kind": "stairs"})
     pts = np.array(path_pts)
     labels.insert(0, {"text": cfg.start_label, "xyz": [float(pts[0, 0]), float(pts[0, 1]), float(pts[0, 2] - cam_h)], "level": int(path_lv[0]), "floor_z": float(pts[0, 2] - cam_h), "role": "start"})
     labels.insert(1, {"text": cfg.end_label, "xyz": [float(pts[-1, 0]), float(pts[-1, 1]), float(pts[-1, 2] - cam_h)], "level": int(path_lv[-1]), "floor_z": float(pts[-1, 2] - cam_h), "role": "end"})
