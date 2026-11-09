@@ -210,30 +210,44 @@ gsu idealize --work work --title "Building A"            # -> work/geometry/idea
 ```
 
 Reads the measured `diagram.json` and redraws the same elements as a clean schematic
-on a 0.5 m grid: halls as rectangles, the corridor as a straight slab of standard
-width (`--corridor-width`), each open-well stair as a square well (`--void-side`,
-default the measured median) with three flights of `--flight-width` around it, quarter
-landings and a gallery on the upper level, real steps, a start/end hall drawn as the
-floor slab under its staircase (`--foyer beside` for a separate room), the route climbing
-the flights, numbered markers with a short key instead of text on the drawing
-(`--labels-inline` to revert). On the stairs only the walked surfaces are drawn: flights,
-landings and the stretch of gallery the route crosses (`--gallery upper|both|none` and
-`--void-lines` add the full gallery ring or the well's wireframe). Outputs `plan.svg`, `plan_L*.svg`, `iso.svg`,
+on a 0.5 m grid: halls as rectangles, the corridor as a straight slab the same width as
+the stair landings (`--corridor-width` to change it), each open-well stair as a square
+well (`--void-side`, default the measured median) with flights of `--flight-width` around
+it, quarter landings, real steps, a start/end hall drawn as the floor slab under its
+staircase (`--foyer beside` for a separate room), the route climbing the flights, numbered
+markers with a short key instead of text on the drawing (`--labels-inline` to revert). On
+the stairs only the walked surfaces are drawn: flights, landings and the stretch of
+gallery the route crosses (`--gallery upper|both|none` and `--void-lines` add the full
+gallery ring or the well's wireframe). Outputs `plan.svg`, `plan_L*.svg`, `iso.svg`,
 `iso_noroute.svg`, `iso_exploded.svg`, `diagram.glb/.obj`, the schematic `diagram.json`
 and one isometric per colour theme in `styles/` (`light`, `dark` = off-black with white
 lines, `blueprint`, `mono` line art, `paper`, `slate`; `--theme` picks the main one,
-`--iso-azimuth` / `--iso-elevation` turn the view). Geometry knobs: `--wells measured`
-(each stair its own well size), `--flights 2` (dog-leg), `--gallery upper|both|none`,
-`--mid-steps 0.55:4` (a short flight inside the corridor), `--entry-steps 8` (a lower
-entrance foyer with a straight flight up to the stair), `--stair-sense ccw,cw` (turn
-direction per stair), `--exit-after 0,1` (the route leaves a stair after that many flights
-into the next space, which is then drawn at that landing level while the stair continues),
-`--corridor-width`, `--flight-width`. A corridor meeting a stair is placed flush with the
-block at the start of the landing side, so the top landing is a regular L and the first
-flight leaves from its far corner. The sample sign was made with
-`gsu idealize --theme mono --title "Route to G29" --end-label G29 --stair-sense ccw,ccw --exit-after 0,1`. Touching coplanar surfaces are
-merged into one outline, and the route is drawn in depth order so it disappears where it
-passes under a higher floor.
+`--iso-azimuth` / `--iso-elevation` turn the view).
+
+Geometry knobs, one value per stair in route order where there is a list:
+`--stair-sense ccw,cw` (turn direction), `--stair-flights 3,4` (flights per storey;
+default from the storey height), `--exit-after 0,4` (the route leaves the stair after
+that many flights; 0 = all), `--continue 0,1` (extra flights drawn beyond the exit when
+the stair carries on), `--wells measured` (each stair its own well size), `--mid-steps
+0.55:4` (a short flight inside the corridor), `--entry-steps 8` (a lower entrance foyer
+with a straight flight up to the stair), `--corridor-width`, `--flight-width`. A corridor
+meeting a stair is placed flush with the block at the start of the landing side, so the
+top landing is a regular L and the first flight leaves from its far corner. A hall
+entered from a stair is placed flush with the block at the exit landing, so you step
+straight off the stair into it; if the exit is between storeys the hall is drawn at that
+landing level. The sample sign was made with
+
+```bash
+gsu idealize --theme mono --title "Route to G29" --end-label G29 \
+    --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4 --continue 0,1
+```
+
+Drawing rules: touching coplanar surfaces (slabs, landings, the top tread of a flight)
+are merged into one outline; the surfaces in a level are ordered for drawing by
+separating planes (exact for the axis-aligned boxes used here), so touching steps,
+landings and route never paint over each other; the route is drawn as individual dashes
+fitted to each straight run (a run starts and ends with a full dash, so corners stay
+solid) and disappears where it passes under a higher surface.
 `python scripts/make_variants.py --work work --out variants/` renders a labelled contact
 sheet of angle and geometry variants. This is the drawing to hand to the sign designer;
 the measured one is the evidence behind it.

@@ -236,15 +236,106 @@ class AxoView:
         return np.c_[p @ u, -(p @ v)], p @ w
 
 
+def _box_sep(a, b, w, eps: float = 1e-6) -> int:
+    """Painter's relation of two axis-aligned boxes (x0, y0, z0, x1, y1, z1) seen along
+    `w` (unit vector towards the viewer): -1 = a is behind b (draw a first), +1 = b is
+    behind a, 0 = undecided (interpenetrating, or separated both ways = no overlap on
+    screen). A plane separating the boxes puts the one on the viewer's side in front."""
+    votes = set()
+    for k in range(3):
+        if abs(w[k]) < 1e-9:
+            continue
+        if a[3 + k] <= b[k] + eps:        # a entirely on the -k side of b
+            votes.add(-1 if w[k] > 0 else 1)
+        elif b[3 + k] <= a[k] + eps:      # b entirely on the -k side of a
+            votes.add(1 if w[k] > 0 else -1)
+    return votes.pop() if len(votes) == 1 else 0
+
+
+def _sb_overlap(a, b, tol: float = 1e-4) -> bool:
+    return a[0] < b[2] - tol and b[0] < a[2] - tol and a[1] < b[3] - tol and b[1] < a[3] - tol
+
+
+@dataclass
+class _Item:
+    depth: float
+    svg: str
+    members: list           # [(box3d, screen_bbox)] of the solids this fragment draws
+    sbox: tuple | None      # screen bbox of all members
+
+
 class _Faces:
-    """Collects svg fragments with a depth key per layer; layers are emitted in
-    order, each sorted far-to-near (painter's algorithm)."""
+    """Collects svg fragments per layer. Within a layer the fragments are ordered
+    far-to-near: fragments that carry axis-aligned boxes get an exact order from
+    separating planes (topological sort), the centroid depth only breaks ties, so
+    touching step boxes, landings and route dashes never paint over each other."""
 
-    def __init__(self):
-        self.layers: dict[str, list[tuple[float, str]]] = {}
+    def __init__(self, view: "AxoView"):
+        self.view = view
+        self.w = view.axes()[2]
+        self.layers: dict[str, list[_Item]] = {}
 
-    def add(self, layer: str, depth: float, svg: str) -> None:
-        self.layers.setdefault(layer, []).append((depth, svg))
+    def add(self, layer: str, depth: float, svg: str, boxes=None) -> None:
+        members = []
+        for bx in boxes or []:
+            x0, y0, z0, x1, y1, z1 = bx
+            pts = np.array([[x, y, z] for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)])
+            p2, _ = self.view.project(pts)
+            members.append((tuple(float(v) for v in bx),
+                            (float(p2[:, 0].min()), float(p2[:, 1].min()), float(p2[:, 0].max()), float(p2[:, 1].max()))))
+        sbox = None
+        if members:
+            arr = np.array([m[1] for m in members])
+            sbox = (float(arr[:, 0].min()), float(arr[:, 1].min()), float(arr[:, 2].max()), float(arr[:, 3].max()))
+        self.layers.setdefault(layer, []).append(_Item(depth, svg, members, sbox))
+
+    def _relation(self, A: _Item, B: _Item) -> int:
+        if A.sbox is None or B.sbox is None or not _sb_overlap(A.sbox, B.sbox):
+            return 0
+        votes = set()
+        for ba, sa in A.members:
+            if not _sb_overlap(sa, B.sbox):
+                continue
+            for bb, sb in B.members:
+                if not _sb_overlap(sa, sb):
+                    continue
+                r = _box_sep(ba, bb, self.w)
+                if r:
+                    votes.add(r)
+        return votes.pop() if len(votes) == 1 else 0
+
+    def _order(self, items: list[_Item]) -> list[_Item]:
+        import heapq
+        n = len(items)
+        succ = [[] for _ in range(n)]
+        indeg = [0] * n
+        for i in range(n):
+            if items[i].sbox is None:
+                continue
+            for j in range(i + 1, n):
+                r = self._relation(items[i], items[j])
+                if r == -1:
+                    succ[i].append(j); indeg[j] += 1
+                elif r == 1:
+                    succ[j].append(i); indeg[i] += 1
+        heap = [(items[i].depth, i) for i in range(n) if indeg[i] == 0]
+        heapq.heapify(heap)
+        done = [False] * n
+        out: list[_Item] = []
+        remaining = set(range(n))
+        while len(out) < n:
+            if not heap:                        # cycle: release the farthest remaining fragment
+                i = min(remaining, key=lambda k: items[k].depth)
+                heapq.heappush(heap, (items[i].depth, i))
+            _, i = heapq.heappop(heap)
+            if done[i]:
+                continue
+            done[i] = True; remaining.discard(i); out.append(items[i])
+            for j in succ[i]:
+                indeg[j] -= 1
+                if indeg[j] <= 0 and not done[j]:
+                    heapq.heappush(heap, (items[j].depth, j))
+        return out
 
     def emit(self, order: list[str]) -> list[str]:
         out = []
@@ -252,9 +343,8 @@ class _Faces:
             items = self.layers.get(name)
             if not items:
                 continue
-            items.sort(key=lambda t: t[0])
             out.append(f'<g id="{name}">')
-            out += [svg for _, svg in items]
+            out += [it.svg for it in self._order(items)]
             out.append("</g>")
         return out
 
@@ -281,7 +371,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
     S = dict(THEMES.get(theme, THEMES["light"]))
     lw = S["line_w"]
     levels = {lv["id"]: lv for lv in diagram["levels"]}
-    faces = _Faces()
+    faces = _Faces(view)
     ppm = view.px_per_m
     cam_h = diagram.get("camera_height_m", 1.5)
 
@@ -308,6 +398,13 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             return f"stairs-L{lo}"
         return f"level-L{r['level']}"
 
+    def stairs_layer_for_z(z: float) -> str:
+        """Stairs geometry sits just above the highest floor that is not above it."""
+        below = [(lv["floor_z"], lid) for lid, lv in levels.items() if lv["floor_z"] <= z + 1e-6]
+        if not below:
+            return "stairs-Lsub"
+        return f"stairs-L{max(below)[1]}"
+
     all_pts = []
 
     def P(pts3, off=0.0):
@@ -329,7 +426,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         q[:, 2] += offs
         bottom = q.copy(); bottom[:, 2] -= thickness
         p2, d = view.project(q); all_pts.append(p2)
-        faces.add(layer, _quad_depth(d) - 0.03, poly(p2 * ppm, top_fill))
+        parts = [poly(p2 * ppm, top_fill)]
         sa, sb = side_fills or (S["floor_side_a"], S["floor_side_b"])
         _, _, wv = view.axes()
         for k in range(4):
@@ -341,8 +438,11 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             if np.array([n[0], n[1], 0.0]) @ wv <= 0:
                 continue
             side = np.array([q[k], q[k2], bottom[k2], bottom[k]])
-            p2s, ds = view.project(side)
-            faces.add(layer, _quad_depth(ds) - 0.02, poly(p2s * ppm, _side_tone(n, view, sa, sb)))
+            p2s, _ = view.project(side)
+            parts.append(poly(p2s * ppm, _side_tone(n, view, sa, sb)))
+        box = (float(q[:, 0].min()), float(q[:, 1].min()), float(bottom[:, 2].min()),
+               float(q[:, 0].max()), float(q[:, 1].max()), float(q[:, 2].max()))
+        faces.add(layer, _quad_depth(d) - 0.03, "".join(parts), boxes=[box])
 
     # coplanar axis-aligned flat surfaces are merged per height so touching
     # slabs, landings and walkways share one outline (no borders inside)
@@ -390,6 +490,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             is_steps = bool(r.get("steps"))
             for quad, th in zip(quads, thick):
                 offs = np.array([off_at(z) for z in quad[:, 2]])
+                layer = stairs_layer_for_z(float(quad[:, 2].min()))
                 if is_steps and abs(th - slab) < 1e-6 and np.ptp(quad[:, 2]) <= 1e-6:
                     # landing / walkway: merge with the floor it belongs to
                     zq = float(quad[0, 2])
@@ -477,9 +578,8 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         for lp in loops:
             p2, _ = view.project(np.c_[lp, np.full(len(lp), z)])
             d_parts.append("M " + " L ".join(f"{_fmt(x * ppm)},{_fmt(y * ppm)}" for x, y in p2) + " Z")
-        faces.add(g["layer"], depth - 0.03,
-                  f'<path d="{" ".join(d_parts)}" fill="{g["fill"]}" fill-rule="evenodd" stroke="{S["line"]}" '
-                  f'stroke-width="{lw}" stroke-linejoin="round"/>')
+        parts = [f'<path d="{" ".join(d_parts)}" fill="{g["fill"]}" fill-rule="evenodd" stroke="{S["line"]}" '
+                 f'stroke-width="{lw}" stroke-linejoin="round"/>']
         for lp in loops:
             n_ = len(lp)
             for k in range(n_):
@@ -490,13 +590,15 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                 if np.array([nrm[0], nrm[1], 0.0]) @ wv <= 0:
                     continue
                 side = np.array([[*a, z], [*b, z], [*b, z - g["thickness"]], [*a, z - g["thickness"]]])
-                p2s, ds = view.project(side)
-                faces.add(g["layer"], float(ds.mean()) - 0.02,
-                          poly(p2s * ppm, _side_tone(nrm, view, S["floor_side_a"], S["floor_side_b"])))
+                p2s, _ = view.project(side)
+                parts.append(poly(p2s * ppm, _side_tone(nrm, view, S["floor_side_a"], S["floor_side_b"])))
+        boxes = [(x0, y0, z - g["thickness"], x1, y1, z) for (x0, y0, x1, y1) in g["rects"]]
+        faces.add(g["layer"], depth - 0.03, "".join(parts), boxes=boxes)
 
-    # path: drawn as short segments inside the level / stairs layers, depth-sorted with the
-    # geometry, so a higher surface drawn later hides the stretch of route beneath it.
-    # The dash pattern stays continuous across segments via stroke-dashoffset.
+    # path: every dash is its own short solid line placed in the level / stairs layer of
+    # its height and ordered with the geometry, so a higher surface drawn later hides the
+    # stretch of route beneath it. Dashes are fitted to each straight run so a run starts
+    # and ends with a full dash: corners stay solid.
     if show_path:
         pts = np.array(diagram["path"]["points"])
         lv = diagram["path"].get("level") or [0] * len(pts)
@@ -504,41 +606,55 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         stairs_boxes = []
         for r in stairs_runs:
             q = np.vstack([np.array(qq) for qq in r["quads"]]) if r.get("quads") else np.vstack([np.array(r["left_boundary"]), np.array(r["right_boundary"])])
-            stairs_boxes.append((q[:, 0].min() - 0.5, q[:, 1].min() - 0.5, q[:, 0].max() + 0.5, q[:, 1].max() + 0.5, run_layer(r)))
+            stairs_boxes.append((q[:, 0].min() - 0.5, q[:, 1].min() - 0.5, q[:, 0].max() + 0.5, q[:, 1].max() + 0.5))
 
-        def layer_for(p, l):
-            if l >= 0:
-                return f"level-L{l}"
-            for x0, y0, x1, y1, ly in stairs_boxes:
-                if x0 <= p[0] <= x1 and y0 <= p[1] <= y1:
-                    return ly
+        def layer_for(xy, z_top: float, flag: int) -> str:
+            if flag >= 0:
+                return f"level-L{flag}"
+            for x0, y0, x1, y1 in stairs_boxes:
+                if x0 <= xy[0] <= x1 and y0 <= xy[1] <= y1:
+                    return stairs_layer_for_z(z_top + 1e-6)      # a dash belongs with the highest tread it touches
             return "path"
-        dash_a, dash_b = 6.0, 4.0
-        period = dash_a + dash_b
-        cum = 0.0
-        step_m = 0.4
+        # straight runs (same direction, same level flag) in floor-relative coordinates
+        runs_: list[list] = []        # [a3, b3, flag]
         for (p0, l0), (p1, l1) in zip(zip(pts[:-1], lv[:-1]), zip(pts[1:], lv[1:])):
             if not (l0 >= 0 or path_on_stairs) and not (l1 >= 0):
                 continue
-            z0f, z1f = p0[2] - cam_h, p1[2] - cam_h
-            o0 = lvl_off(l0) if l0 >= 0 else off_for_z(z0f)
-            o1 = lvl_off(l1) if l1 >= 0 else off_for_z(z1f)
-            a = np.array([p0[0], p0[1], z0f + 0.06 + o0]); b = np.array([p1[0], p1[1], z1f + 0.06 + o1])
+            flag = l0 if l0 == l1 else (max(l0, l1) if min(l0, l1) >= 0 else -1)
+            a = np.array([p0[0], p0[1], p0[2] - cam_h]); b = np.array([p1[0], p1[1], p1[2] - cam_h])
             L = float(np.linalg.norm(b - a))
             if L < 1e-6:
                 continue
-            n_sub = max(1, int(np.ceil(L / step_m)))
-            for k in range(n_sub):
-                sa = a + (b - a) * (k / n_sub); sb = a + (b - a) * ((k + 1) / n_sub)
-                p2, d = view.project(np.vstack([sa, sb]))
-                all_pts.append(p2)
-                seg_px = float(np.linalg.norm((p2[1] - p2[0]) * ppm))
-                ly = layer_for(0.5 * (sa + sb), l0 if l0 == l1 else max(l0, l1) if min(l0, l1) >= 0 else -1)
+            dvec = (b - a) / L
+            if runs_ and runs_[-1][2] == flag and np.linalg.norm(runs_[-1][1] - a) < 1e-6:
+                prev_d = runs_[-1][1] - runs_[-1][0]; prev_d = prev_d / max(np.linalg.norm(prev_d), 1e-9)
+                if abs(float(prev_d @ dvec) - 1.0) < 1e-6:
+                    runs_[-1][1] = b
+                    continue
+            runs_.append([a, b, flag])
+        dash_px, gap_px = 6.0, 4.0
+        for a, b, flag in runs_:
+            oa = lvl_off(flag) if flag >= 0 else off_for_z(float(a[2]))
+            ob = lvl_off(flag) if flag >= 0 else off_for_z(float(b[2]))
+            a3 = np.array([a[0], a[1], a[2] + 0.06 + oa]); b3 = np.array([b[0], b[1], b[2] + 0.06 + ob])
+            p2, _ = view.project(np.vstack([a3, b3])); all_pts.append(p2)
+            L_px = float(np.linalg.norm((p2[1] - p2[0]) * ppm))
+            if L_px < 1e-3:
+                continue
+            n_d = max(1, int(round((L_px + gap_px) / (dash_px + gap_px))))
+            period = (L_px + gap_px) / n_d
+            dash = max(period - gap_px, min(L_px, 2.0)) if n_d > 1 else L_px
+            for k in range(n_d):
+                t0 = (k * period) / L_px; t1 = min(1.0, (k * period + dash) / L_px)
+                sa = a3 + (b3 - a3) * t0; sb = a3 + (b3 - a3) * t1
+                q2, d = view.project(np.vstack([sa, sb]))
+                za = a[2] + (b[2] - a[2]) * t0; zb = a[2] + (b[2] - a[2]) * t1
+                ly = layer_for(0.5 * (sa + sb)[:2], max(za, zb), flag)
+                box = (float(min(sa[0], sb[0])), float(min(sa[1], sb[1])), float(min(sa[2], sb[2])),
+                       float(max(sa[0], sb[0])), float(max(sa[1], sb[1])), float(max(sa[2], sb[2])))
                 faces.add(ly, float(d.mean()) + 0.04,
-                          _line(p2[0] * ppm, p2[1] * ppm, stroke=S["path"], stroke_width=lw * 1.8,
-                                stroke_dasharray=f"{dash_a:g} {dash_b:g}", stroke_dashoffset=f"{-(cum % period):.2f}",
-                                stroke_linecap="butt"))
-                cum += seg_px
+                          _line(q2[0] * ppm, q2[1] * ppm, stroke=S["path"], stroke_width=lw * 1.8, stroke_linecap="butt"),
+                          boxes=[box])
     # labels
     fs = max(11.0, 0.4 * ppm)
     key_rows = []
@@ -606,6 +722,8 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
     # each stairs layer right after the level it rises from
     def layer_height(name: str) -> float:
         kind, _, num = name.partition("-L")
+        if num == "sub":
+            return -1e9
         try:
             lid = int(num)
         except ValueError:

@@ -24,26 +24,22 @@ HERE = Path(__file__).resolve().parent
 
 VARIANTS: list[tuple[str, dict, dict]] = [
     # name, IdealConfig overrides, view overrides
-    ("a1_az-30", {}, {"azimuth_deg": -30}),
+    ("a1_az-45_isometric", {}, {"azimuth_deg": -45}),
     ("a2_az-60_base", {}, {"azimuth_deg": -60}),
-    ("a3_az-90", {}, {"azimuth_deg": -90}),
-    ("a4_az120_other_side", {}, {"azimuth_deg": 120}),
-    ("a5_el25_low", {}, {"azimuth_deg": -60, "elevation_deg": 25}),
-    ("a6_el48_high", {}, {"azimuth_deg": -60, "elevation_deg": 48}),
+    ("a3_az-70", {}, {"azimuth_deg": -70}),
+    ("a4_az-75_second_stair_reads", {}, {"azimuth_deg": -75}),
+    ("a5_az-90_frontal", {}, {"azimuth_deg": -90}),
+    ("a6_el30", {}, {"azimuth_deg": -60, "elevation_deg": 30}),
     ("a7_exploded", {}, {"azimuth_deg": -60, "explode_m": 3.0}),
     ("g1_wells_measured", {"void_mode": "measured"}, {}),
-    ("g2_two_flights_dogleg", {"flights": 2, "void_mode": "measured"}, {}),
-    ("g3_four_flights", {"flights": 4}, {}),
-    ("g4_gallery_both_levels", {"gallery": "both"}, {}),
-    ("g5_flights_only", {"gallery": "none"}, {}),
-    ("g5b_full_gallery_void", {"gallery": "upper", "void_lines": True}, {}),
-    ("g6_corridor_1.6m", {"corridor_width": 1.6}, {}),
-    ("g7_corridor_2.6m_flights_1.5m", {"corridor_width": 2.6, "flight_width": 1.5}, {}),
-    ("g8_mid_corridor_4_steps", {"mid_steps": [(0.55, 4)]}, {}),
-    ("g9_as_filmed_entry8_mid4", {"entry_steps": 8, "mid_steps": [(0.55, 4)], "void_mode": "measured"}, {}),
-    ("g10_foyer_beside", {"foyer": "beside"}, {}),
-    ("g11_wells_4.5m", {"void_side": 4.5}, {}),
-    ("g12_no_route", {"show_path": False}, {}),
+    ("g2_exit_one_flight_down", {"exit_after": [0, 1], "continue_flights": [0, 3]}, {}),
+    ("g3_corridor_2.0m", {"corridor_width": 2.0}, {}),
+    ("g4_flights_1.5m", {"flight_width": 1.5, "corridor_width": 1.5}, {}),
+    ("g5_mid_corridor_4_steps", {"mid_steps": [(0.55, 4)]}, {}),
+    ("g6_entry_8_steps", {"entry_steps": 8}, {}),
+    ("g7_wells_4.5m", {"void_side": 4.5}, {}),
+    ("g8_no_route", {"show_path": False}, {}),
+    ("g9_foyer_beside", {"foyer": "beside"}, {}),
 ]
 
 
@@ -60,7 +56,10 @@ def main() -> None:
     src = a.diagram or (a.work / "geometry" / "diagram.json")
     d = json.loads(Path(src).read_text())
     a.out.mkdir(parents=True, exist_ok=True)
-    base = IdealConfig(theme=a.theme, title=a.title, end_label=a.end_label, all_themes=False)
+    # the locked design: both stairs anticlockwise, 3 then 4 flights, full turn on the second
+    # stair before the antechamber, one more flight drawn as the stair carries on down
+    base = IdealConfig(theme=a.theme, title=a.title, end_label=a.end_label, all_themes=False,
+                       stair_sense=["ccw", "ccw"], stair_flights=[3, 4], exit_after=[0, 4], continue_flights=[0, 1])
     made = []
     for name, cfg_over, view_over in VARIANTS:
         if a.only and name not in a.only:

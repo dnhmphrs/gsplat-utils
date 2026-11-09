@@ -25,7 +25,7 @@ from .svg import AxoView, write_axo_svg, write_plan_svg
 @dataclass
 class IdealConfig:
     grid: float = 0.5                 # everything snaps to this (m)
-    corridor_width: float = 2.0
+    corridor_width: float | None = None   # None = same as the flight/landing width
     flight_width: float = 1.25
     step_rise: float = 0.17           # riser height of the drawn steps (m)
     step_run: float = 0.28            # tread depth of straight (non-well) flights (m)
@@ -37,6 +37,12 @@ class IdealConfig:
     mid_steps: list = field(default_factory=list)   # [(fraction_along_corridor, n_steps)] short flights inside corridors
     stair_sense: list = field(default_factory=list)  # per stair in route order: "ccw" | "cw" | "auto" (measured)
     exit_after: list = field(default_factory=list)   # per stair: flights the route takes before leaving (0 = all)
+    stair_flights: list = field(default_factory=list)  # per stair: flights per storey (0 = from the height / --flights)
+    continue_flights: list = field(default_factory=list)  # per stair: extra flights drawn beyond the route's exit
+
+    def __post_init__(self):
+        if self.corridor_width is None:
+            self.corridor_width = self.flight_width
     entry_steps: int = 0              # straight flight between a lower entrance foyer and the first stair
     foyer: str = "base"               # "base": a start/end hall is the floor slab under its staircase; "beside": separate rectangle
     theme: str = "light"
@@ -89,6 +95,9 @@ class Element:
     term: np.ndarray | None = None        # Start/End point on a base slab
     exit_after: int = 0                   # stairs: route leaves after this many flights (0 = all)
     exit_from: "Element | None" = None    # hall entered part-way down/up a stair
+    flights: int = 0                      # stairs: flights per storey (0 = default)
+    cont: int = 0                         # stairs: extra flights drawn beyond the exit
+    entry_pt: np.ndarray | None = None    # hall at a stair exit: point on its edge where the route comes in
 
 
 def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
@@ -130,6 +139,10 @@ def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
                 e.sense = -1 if cfg.stair_sense[k_st] == "cw" else 1
             if k_st < len(cfg.exit_after):
                 e.exit_after = int(cfg.exit_after[k_st])
+            if k_st < len(cfg.stair_flights):
+                e.flights = int(cfg.stair_flights[k_st])
+            if k_st < len(cfg.continue_flights):
+                e.cont = int(cfg.continue_flights[k_st])
             els.append(e)
         elif r.get("hall"):
             e = Element("hall", r, level=r["level"])
@@ -315,7 +328,7 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
     if exit_ is None:
         exit_side = (entry_side + 2) % 4
     # a storey is climbed in 2-4 flights of ~1.5 m around the well (or as configured)
-    n_fl = int(cfg.flights) if cfg.flights else int(np.clip(round(abs(z1 - z0) / cfg.flight_rise), 2, 4))
+    n_fl = int(e.flights) if e.flights else int(cfg.flights) if cfg.flights else int(np.clip(round(abs(z1 - z0) / cfg.flight_rise), 2, 4))
     n_fl = int(np.clip(n_fl, 1, 4))
     order = [(entry_side + k * sense) % 4 for k in range(n_fl)]
     dz = (z1 - z0) / n_fl
@@ -345,6 +358,7 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
             ztop = z + (k + 1) * rise
             flights.append(np.array([np.r_[a0, ztop], np.r_[a1, ztop], np.r_[b1, ztop], np.r_[b0, ztop]]))
             thick.append(abs(rise))
+        thick[-1] = cfg.slab          # the top tread is the landing surface: merge with it
         for cc, zz in ((c0, z), (c1, z + dz)):
             key = (cc, round(zz, 3))
             if key not in seen_landings:
@@ -356,6 +370,33 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
     last_corner = corners_of_side(order[n_route - 1], sense)[1]
     z_exit = z0 + n_route * dz
     route.append(np.r_[corner_xy[last_corner], z_exit])
+    # the stair carries on beyond where the route leaves: extra flights, no route
+    for k in range(int(e.cont)):
+        side = (order[n_route - 1] + (k + 1) * sense) % 4
+        c0, c1 = corners_of_side(side, sense)
+        zc0 = z_exit + k * dz
+        p0, p1, n = side_strip(side, zc0, zc0 + dz)
+        if sense < 0:
+            p0, p1 = p1, p0
+        l0, l1 = p0 + n * (w / 2), p1 + n * (w / 2)
+        r0, r1 = p0 - n * (w / 2), p1 - n * (w / 2)
+        if sense < 0:
+            l0, r0, l1, r1 = r0, l0, r1, l1
+        n_steps = max(3, int(round(abs(dz) / cfg.step_rise)))
+        rise = dz / n_steps
+        for k2 in range(n_steps):
+            t0, t1 = k2 / n_steps, (k2 + 1) / n_steps
+            a0 = l0 + (l1 - l0) * t0; a1 = l0 + (l1 - l0) * t1
+            b0 = r0 + (r1 - r0) * t0; b1 = r0 + (r1 - r0) * t1
+            ztop = zc0 + (k2 + 1) * rise
+            flights.append(np.array([np.r_[a0, ztop], np.r_[a1, ztop], np.r_[b1, ztop], np.r_[b0, ztop]]))
+            thick.append(abs(rise))
+        thick[-1] = cfg.slab
+        for cc, zz in ((c0, zc0), (c1, zc0 + dz)):
+            key = (cc, round(zz, 3))
+            if key not in seen_landings:
+                seen_landings.add(key)
+                landings.append(_rect(corner_xy[cc], np.array([w, w]), zz))
     # continue along the gallery (at z1) from the last landing to the exit side, the short way round
     def gallery_walk(sense_):
         last_side = order[n_route - 1]
@@ -479,7 +520,7 @@ def place_exit_hall(stair: Element, hall: Element, entry: np.ndarray, corridor_f
     landing_side = _side_of(stair, np.asarray(entry, float))
     first_corner = _corners_of_side(landing_side, stair.sense)[1]
     entry_side = next(sd for sd in range(4) if _corners_of_side(sd, stair.sense)[0] == first_corner)
-    n_fl = int(cfg.flights) if cfg.flights else int(np.clip(round(abs(z1 - z0) / cfg.flight_rise), 2, 4))
+    n_fl = int(stair.flights) if stair.flights else int(cfg.flights) if cfg.flights else int(np.clip(round(abs(z1 - z0) / cfg.flight_rise), 2, 4))
     n_fl = int(np.clip(n_fl, 1, 4))
     n_route = int(stair.exit_after) if stair.exit_after and 0 < stair.exit_after < n_fl else n_fl
     order = [(entry_side + k * stair.sense) % 4 for k in range(n_fl)]
@@ -496,8 +537,15 @@ def place_exit_hall(stair: Element, hall: Element, entry: np.ndarray, corridor_f
     k = 0 if side in (1, 3) else 1
     hall.size = np.array([max(hall.size[0], cfg.hall_min), max(hall.size[1], cfg.hall_min)])
     hall.centre = stair.centre + n * (stair.size[k] / 2 + hall.size[k] / 2)
-    hall.centre[1 - k] = stair.centre[1 - k]
-    hall.term = hall.centre.copy()
+    # the hall's edge is flush with the block's edge at the exit corner, so you step off
+    # the landing straight into it (no walk along the side of the well)
+    corner_sign = {0: (-1, -1), 1: (1, -1), 2: (1, 1), 3: (-1, 1)}
+    cs = corner_sign[exit_corner][1 - k]
+    hall.centre[1 - k] = stair.centre[1 - k] + cs * (stair.size[1 - k] / 2 - hall.size[1 - k] / 2)
+    landing = stair.centre + np.array(corner_sign[exit_corner], float) * (stair.size / 2 - w / 2)
+    entry_pt = landing.copy(); entry_pt[k] = stair.centre[k] + n[k] * stair.size[k] / 2
+    hall.entry_pt = entry_pt
+    hall.term = entry_pt.copy(); hall.term[k] = hall.centre[k]      # straight ahead to the middle of the hall
     hall.base_of = None
     hall.exit_from = stair
 
@@ -554,9 +602,12 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
             lo_h, hi_h = e.centre - e.size / 2, e.centre + e.size / 2
             if e.exit_from is not None:
                 st = e.exit_from
-                dd = e.centre - st.centre; kk = int(np.argmax(np.abs(dd)))
-                edge = e.centre.copy(); edge[kk] = st.centre[kk] + (1 if dd[kk] >= 0 else -1) * st.size[kk] / 2
-                edge[1 - kk] = float(np.clip(edge[1 - kk], lo_h[1 - kk] + 0.75, hi_h[1 - kk] - 0.75))
+                if e.entry_pt is not None:
+                    edge = np.asarray(e.entry_pt, float).copy()
+                else:
+                    dd = e.centre - st.centre; kk = int(np.argmax(np.abs(dd)))
+                    edge = e.centre.copy(); edge[kk] = st.centre[kk] + (1 if dd[kk] >= 0 else -1) * st.size[kk] / 2
+                    edge[1 - kk] = float(np.clip(edge[1 - kk], lo_h[1 - kk] + 0.75, hi_h[1 - kk] - 0.75))
                 for p in _manhattan(edge, e.term if e.term is not None else e.centre, z + cam_h):
                     path_pts.append(p); path_lv.append(e.level)
                 continue
@@ -672,8 +723,7 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                 is_corr = prev_ is not None and prev_.kind == "corridor"
                 corridor_from = prev_.b if is_corr else np.asarray(entry, float)
                 place_exit_hall(e, next_, entry, corridor_from, cfg, z0, z1, corridor_axis=prev_.axis if is_corr else None)
-                exit_ = e.centre.copy(); dd = next_.centre - e.centre; kk = int(np.argmax(np.abs(dd)))
-                exit_[kk] = e.centre[kk] + (1 if dd[kk] >= 0 else -1) * e.size[kk] / 2
+                exit_ = np.asarray(next_.entry_pt, float).copy()
             flights, landings, atrium, (route, gallery), thick = _stair_block(e, entry, exit_, z0, z1, cfg)
             if e.exit_after and abs(e._z_exit - z1) > 1e-6:
                 exit_level_z = float(e._z_exit)

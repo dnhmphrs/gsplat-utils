@@ -1,60 +1,62 @@
 # Route to G29 — variants and critique
 
-All in the locked style (black line on white, numbered markers, key below).
-`contact_sheet.png` shows them side by side; each `*.svg` is editable (layers per level,
-stairs, path, labels, key).
+All in the locked style (black line on white, numbered markers, key below) and the locked
+geometry: both stairs anticlockwise, three flights up, a full turn of four flights down,
+then straight off the landing into the antechamber while the stair carries on down one
+more flight. `contact_sheet.png` shows them side by side; each `*.svg` is editable
+(layers per level, stairs, path, labels, key).
 
-## Angles
+Made with `python scripts/make_variants.py --work work --out examples/walkthrough/ideal/variants`.
+
+## Angles (eye point 25° unless noted)
 | file | note |
 |---|---|
-| a1_az-30 | wide landscape; corridor foreshortened, both halls read well |
-| a2_az-60_base | current default; corridor diagonal, start/end markers clear of the galleries |
-| a3_az-90 | looking along the corridor; stairs stack behind each other — reject |
-| a4_az120_other_side | seen from the far side; the route disappears behind the galleries — reject |
-| a5_el25_low | low eye point, more "model on a table"; flights read best here |
-| a6_el48_high | high eye point, almost a plan; route and halls clearest, stairs flatter |
-| a7_exploded | levels pulled apart 3 m; the one that explains "up, across, down" fastest |
+| a1_az-45_isometric | classic 45° isometric; the corridor runs at 30° and both stairs show the same two flights foreshortened |
+| a2_az-60_base | **the sign**; corridor diagonal, start/end markers clear, the two foreshortened flights of the second stair sit at the back behind the two that read |
+| a3_az-70 | less slant on the x axis: the fanned treads of the third flight tighten up |
+| a4_az-75_second_stair_reads | the exit flight is seen in profile with its risers, the route loops visibly round the well; the corridor is steeper on the page |
+| a5_az-90_frontal | looking straight along the corridor: a frontal axonometric, no depth on the halls — reject |
+| a6_el30 | higher eye point; treads show more of their depth everywhere, the drawing is less "model on a table" |
+| a7_exploded | levels pulled apart 3 m; still the fastest way to explain "up, across, down" |
 
 ## Geometry
 | file | note |
 |---|---|
-| g1_wells_measured | each stair its own well: the second one is the narrow dog-leg the video shows |
-| g2_two_flights_dogleg | two flights per storey + half landing, measured wells: closest to the real stairs |
-| g3_four_flights | spiral of four: busier, no gain |
-| g4_gallery_both_levels | lower gallery rings duplicate the base slabs: clutter |
-| g5_flights_only | no gallery/void: cleanest stairs but the corridor floats next to them |
-| g6_corridor_1.6m / g7_corridor_2.6m | width is an assumption; 2.0 m sits between them |
-| g8_mid_corridor_4_steps | the four steps up half-way along the corridor (66 s in the video) |
-| g9_as_filmed_entry8_mid4 | entrance flight (8 steps, 14 s) + corridor steps + measured wells: most faithful |
-| g10_foyer_beside | halls as separate rooms beside the stairs: the earlier, weaker reading |
-| g11_wells_4.5m | bigger wells: more legible stairs, less true to the second one |
-| g12_no_route | structure only, for a version where the route is added by hand |
+| g1_wells_measured | each stair its own well: the second well is the narrow 1.5 × 3 m one the reconstruction found, which makes its short flights steep |
+| g2_exit_one_flight_down | the earlier reading of the footage: off after one flight into a room at the landing level, stair continuing three more |
+| g3_corridor_2.0m | a wider corridor than the landings; the T-junction at the first stair then needs a step in the outline |
+| g4_flights_1.5m | wider flights and landings (corridor follows); bigger stairs, less corridor |
+| g5_mid_corridor_4_steps | the four steps up half-way along the corridor (66 s in the video) |
+| g6_entry_8_steps | the short entrance flight before the first stair (14 s in the video) |
+| g7_wells_4.5m | bigger wells: more legible stairs, less true |
+| g8_no_route | structure only, for a version where the route is added by hand |
+| g9_foyer_beside | halls as separate rooms beside the stairs: the earlier, weaker reading |
 
 ## Critique of the current design
-* **Hierarchy works, weight does not**: one line weight for everything. Silhouettes
-  (slab edges) should be heavier than internal edges (step risers, void box), the route a
-  third weight. The SVG layers allow this in Illustrator; the renderer could learn it.
-* **Two things are inventions**, say so on the sign or hide them: the gallery ring on the
-  upper level (the walk never traced it) and three flights per storey. The second stair
-  is really a dog-leg (`g2`); the first is a grand open-well stair with half landings and
-  three short steps at the top, which no variant shows.
-* **Missing cues that matter for wayfinding**: the four steps up in the corridor (`g8`)
-  and the short flight at the entrance (`g9`). Both were visible in the footage and
-  invisible to the reconstruction (the corridor section of the SfM had collapsed in
-  scale). They are now manual flags; measuring them needs better footage or a splat.
-* **The route detours** at the top of the first stair (around two sides of the gallery)
-  because the drawn stair ends on the far corner. A dog-leg (`g2`) or a stair that starts
-  one side later would land the route at the corridor door directly.
+* **A full-turn stair always has two flights that foreshorten.** At a 25° eye point a
+  flight descending away from the viewer shows only slivers of its treads (the risers face
+  away), so it reads as a fan of plates. At −60° those are the third and fourth flights of
+  the second stair, drawn behind the two that read clearly; the route on them is hidden
+  where the nearer treads cover it, which is correct but busy. `a4` (−75°) or `a6` (30°)
+  trade composition for a clearer second stair.
+* **One line weight for everything.** Silhouettes (slab edges) should be heavier than
+  internal edges (risers), the route a third weight. The layers in the SVG allow this in
+  Illustrator; the renderer could learn it.
+* **The antechamber is a box.** Its 9 × 4 m comes from the measured hall; where the G29
+  door actually is was not filmed, so the marker sits at the end of a straight run off the
+  landing. One extra flight stands for "the stair carries on down"; how far it goes is
+  unknown.
 * **Scale is a prior, not a measurement**: lengths follow the 1.5 m camera-height
-  assumption and the corridor width is a default. The 23 m corridor and the 4.3 m storey
-  are consistent with the walking time and a building of this age, no more.
-* **Markers 2 and 3 sit in the wells**; placing them at the foot of the first flight
-  reads more like "go up here". The key could also carry floor names (Ground / First).
-* **What already works**: the base-slab foyers, the single corridor slab, the void
-  wireframes giving depth, the key off the drawing, and the exploded variant as the
-  teaching view.
+  assumption, the 3.5 m wells are the median of two very different measured wells, and the
+  storey height (4.25 m) comes from the drift-corrected climb.
+* **Missing cues that matter for wayfinding**: the four steps in the corridor (`g5`) and
+  the entrance flight (`g6`) are in the footage but not in the reconstruction (the corridor
+  section had collapsed in scale); they stay manual flags until a splat or better footage.
+* **What works**: the base-slab foyer under the first stair, the corridor at landing
+  width so the top landings are clean Ls, the stair carrying on below the antechamber,
+  only walked surfaces drawn, markers off the drawing in a key.
 
 ## Recommendation
-`g2_two_flights_dogleg` geometry with the `a5` or `a6` eye point and, if the building has
-them, `--mid-steps 0.55:4 --entry-steps 8`; use `a7_exploded` where the sign has room
-for a second panel.
+`a2_az-60_base` for the sign. If the second staircase must be read tread by tread, use
+`a4_az-75_second_stair_reads`. Add `--mid-steps 0.55:4 --entry-steps 8` if the sign should
+warn about the short flights, and `a7_exploded` where there is room for a second panel.

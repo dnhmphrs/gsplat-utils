@@ -118,7 +118,9 @@ def cmd_idealize(a: argparse.Namespace) -> None:
                       mid_steps=[(float(x.split(":")[0]), int(x.split(":")[1])) for x in a.mid_steps],
                       entry_steps=a.entry_steps,
                       stair_sense=[x.strip() for x in a.stair_sense.split(",") if x.strip()],
-                      exit_after=[int(x) for x in a.exit_after.split(",") if x.strip()])
+                      exit_after=[int(x) for x in a.exit_after.split(",") if x.strip()],
+                      stair_flights=[int(x) for x in a.stair_flights.split(",") if x.strip()],
+                      continue_flights=[int(x) for x in a.continue_flights.split(",") if x.strip()])
     run_idealize(Workspace(a.work), cfg, diagram_path=a.diagram, out_dir=a.out)
 
 
@@ -368,7 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--diagram", type=Path, default=None, help="diagram.json to idealise (default work/geometry/diagram.json)")
     p.add_argument("--out", type=Path, default=None, help="output folder (default work/geometry/ideal)")
     p.add_argument("--grid", type=float, default=0.5)
-    p.add_argument("--corridor-width", type=float, default=2.0)
+    p.add_argument("--corridor-width", type=float, default=None, help="default: same as --flight-width")
     p.add_argument("--flight-width", type=float, default=1.25)
     p.add_argument("--void-side", type=float, default=None, help="side of the stair wells (default: measured median)")
     p.add_argument("--explode", type=float, default=0.0)
@@ -399,6 +401,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="turn direction per stair in route order, e.g. ccw,cw (default: as walked)")
     p.add_argument("--exit-after", default="",
                    help="per stair: flights the route takes before leaving into the next space, e.g. 0,1 (0 = all)")
+    p.add_argument("--stair-flights", default="", help="per stair: flights per storey, e.g. 3,4 (0 = default)")
+    p.add_argument("--continue", dest="continue_flights", default="",
+                   help="per stair: extra flights drawn beyond where the route leaves, e.g. 0,1")
     p.set_defaults(fn=cmd_idealize)
     p = sub.add_parser("status", help="summarise what each stage produced"); _add_work(p); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("use-model", help="promote a COLMAP sub-model (e.g. colmap/sparse/models/3) to the workspace model")
