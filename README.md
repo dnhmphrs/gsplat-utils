@@ -245,15 +245,19 @@ sign was made with
 ```bash
 gsu idealize --theme mono --title "Route to G29" --end-label G29 \
     --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4 \
-    --iso-azimuth 120 --corridor-max 9 --break-gap 0
+    --iso-azimuth 120 --corridor-max 9 --break-gap 0 \
+    --foyer under --solid-stairs 2,0 --continue-steps 0,3
 ```
 
 The key has five steps: Start, the first stair, `--corridor-label` at the middle of the
 corridor ("Walk to the end of the corridor"; "" drops it), the second stair, the end.
 `--foyer under` runs the start foyer under the whole stair block (as the real atrium does)
-and `--solid-stairs 1,0` builds that stair as a solid stepped mass from each tread down to
-the foyer floor instead of floating treads; with `--continue 0,2` the second stair carries
-on down two flights past the end foyer, mostly hidden beneath it.
+and `--solid-stairs 2,0` builds the first two flights of that stair as a solid stepped mass
+from each tread down to the foyer floor, the flights above floating as usual;
+`--continue-steps 0,3` draws three treads of the next flight below the second stair's last
+landing, a hint that it carries on (`--continue 0,1` would draw a whole flight). A foyer
+that is not under its stair reaches into the block only over the landing square the route
+crosses.
 `--corridor-max 9` draws a longer corridor at 9 m, sliding everything beyond it closer;
 with a `--break-gap` above zero the shortened corridor gets a zig-zag break mark and a
 gap in slab and route. `--shaft-lines up,both` draws dashed verticals at the four corners

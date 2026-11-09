@@ -55,7 +55,8 @@ VARIANTS: list[tuple[str, dict, dict]] = [
     ("g9_foyer_beside", {"foyer": "beside"}, {}),
     ("g10_landing_L", {"top_landing": "L"}, {}),
     ("g13_landing_inline", {"top_landing": "inline"}, {}),
-    ("g14_solid_stair_over_foyer", {"foyer": "under", "solid_stairs": [1, 0], "continue_flights": [0, 2]}, {}),
+    ("g14_floating_stairs", {"foyer": "base", "solid_stairs": [], "continue_steps": []}, {}),
+    ("g15_all_flights_solid", {"solid_stairs": [3, 0]}, {}),
     ("g11_no_hidden_lines", {"hidden_lines": "none"}, {}),
     ("g12_hidden_lines_all", {"hidden_lines": "all"}, {}),
 ]
@@ -79,7 +80,8 @@ def main() -> None:
     # second stair, a full turn of four flights down, straight off into the antechamber
     base = IdealConfig(theme=a.theme, title=a.title, end_label=a.end_label, all_themes=False,
                        stair_sense=["ccw", "ccw"], stair_flights=[3, 4], exit_after=[0, 4],
-                       iso_azimuth=120, corridor_max=9.0, break_gap=0.0)
+                       iso_azimuth=120, corridor_max=9.0, break_gap=0.0,
+                       foyer="under", solid_stairs=[2, 0], continue_steps=[0, 3])
     made = []
     for name, cfg_over, view_over in VARIANTS:
         if a.only and name not in a.only:

@@ -5,7 +5,9 @@ hidden edges of the stairs as light dashed lines) and the locked geometry: both 
 three flights up (south side, back, north side) with the walkway along the west side of
 the well running straight on as the bridge onto the first flight of the second stair, a
 full turn of four flights down, then straight off the last step into a foyer the same
-size as the first. The bridge is drawn at 9 m (it is 19 m) without a break mark, and the
+size as the first. The start foyer runs under the first stair, whose first two flights are
+a solid stepped mass down to it; three treads below the second stair's last landing hint
+that it carries on. The bridge is drawn at 9 m (it is 19 m) without a break mark, and the
 sign's view is azimuth 120, from behind the Start. `contact_sheet.png`
 shows everything side by side, `contact_sheet_angles.png` the front angles and
 `contact_sheet_behind.png` the views from the Start side, larger; each `*.svg` is editable
@@ -55,7 +57,8 @@ route running away up the page to G29. `contact_sheet_behind.png` shows them tog
 | g9_foyer_beside | halls as separate rooms beside the stairs: the earlier, weaker reading |
 | g10_landing_L | the earlier reading of the bridge: it meets the near corner of each stair and the top landing runs the full side as an L |
 | g13_landing_inline | flights reordered so the last one of the first stair points straight down the bridge (back, north side, west side) |
-| g14_solid_stair_over_foyer | the start foyer runs under the first stair and the stair is a solid stepped mass down to it; the second stair carries on down two flights beneath the end foyer (`route_to_g29_solid.*` one folder up) |
+| g14_floating_stairs | the earlier version: foyer flush against the first stair, all treads floating, no hint below the second stair (`route_to_g29_floating.*` one folder up) |
+| g15_all_flights_solid | all three flights of the first stair solid to the floor; the back flight becomes a wall that hides the well |
 | g11_no_hidden_lines | hidden edges left out: the two foreshortened flights of the second stair fall back to a fan of plates |
 | g12_hidden_lines_all | hidden edges of the slabs too (under the bridge, under the stairs): more information, more clutter |
 

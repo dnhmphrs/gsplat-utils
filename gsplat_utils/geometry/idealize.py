@@ -50,7 +50,8 @@ class IdealConfig:
     corridor_max: float | None = None # draw a longer corridor at this length with a break mark in the middle
     break_gap: float = 0.6            # gap in the slab and the route at the break (m); 0 = shorten without a mark
     corridor_label: str = "Walk to the end of the corridor"   # key entry at the middle of the main corridor ("" = none)
-    solid_stairs: list = field(default_factory=list)  # per stair: 1 = treads and landings run down to the stair's lowest floor
+    solid_stairs: list = field(default_factory=list)  # per stair: how many flights (from the bottom) are a solid mass down to the lowest floor
+    continue_steps: list = field(default_factory=list)  # per stair: treads of the next flight drawn beyond the exit (a hint it carries on)
     path_morse: str | None = None     # lay this text in Morse along the route instead of plain dashes
     morse_unit_px: float = 4.0        # length of a Morse dot on the page (px at 36 px/m)
 
@@ -116,7 +117,9 @@ class Element:
     entry_pt: np.ndarray | None = None    # hall at a stair exit: point on its edge where the route comes in
     n_fl: int = 3                         # stairs: flights per storey actually drawn
     shaft: str = "none"                   # stairs: dashed corner verticals
-    solid: bool = False                   # stairs: treads and landings as a solid mass down to the lowest floor
+    solid: int = 0                        # stairs: flights (from the bottom) drawn as a solid mass down to the lowest floor
+    cont_steps: int = 0                   # stairs: treads of the next flight drawn beyond the exit
+    tabs: list = field(default_factory=list)  # halls: extra rectangles (centre, size) merged into the slab
     broken: bool = False                  # corridor: drawn shorter than it is, with a break mark
 
 
@@ -167,7 +170,9 @@ def _elements(d: dict, cfg: IdealConfig) -> list[Element]:
             if k_st < len(cfg.shaft_lines):
                 e.shaft = str(cfg.shaft_lines[k_st])
             if k_st < len(cfg.solid_stairs):
-                e.solid = bool(int(cfg.solid_stairs[k_st]))
+                e.solid = int(cfg.solid_stairs[k_st])
+            if k_st < len(cfg.continue_steps):
+                e.cont_steps = int(cfg.continue_steps[k_st])
             e.n_fl = _n_flights(e, floor.get(e.level_from, 0.0), floor.get(e.level_to, 0.0), cfg)
             els.append(e)
         elif r.get("hall"):
@@ -273,9 +278,12 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
                 if cfg.foyer == "under":          # the slab runs under the whole stair block too
                     e.size = nb.size.copy(); e.size[k] = ext + nb.size[k]
                     e.centre = nb.centre.copy(); e.centre[k] = face + sign * (ext - nb.size[k]) / 2
-                else:
-                    e.size = nb.size.copy(); e.size[k] = ext + w
-                    e.centre = nb.centre.copy(); e.centre[k] = face + sign * (ext - w) / 2
+                else:                             # to the block face, plus the landing square the route crosses
+                    e.size = nb.size.copy(); e.size[k] = ext
+                    e.centre = nb.centre.copy(); e.centre[k] = face + sign * ext / 2
+                    side_pt = nb.centre.copy(); side_pt[k] = nb.centre[k] + sign * nb.size[k]
+                    c_xy = _corner_xy(nb, _first_corner(nb, side_pt, _exit_dir(els, els.index(nb)), cfg), w)
+                    e.tabs = [(c_xy, np.array([w, w]))]
                 e.base_of = nb
                 # the Start/End point sits 1.5 m in from the far end of the slab, clear of the bridge
                 t = nb.centre.copy(); t[k] = face + sign * max(ext - 1.5, ext / 2)
@@ -464,23 +472,27 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
             b0 = r0 + (r1 - r0) * t0; b1 = r0 + (r1 - r0) * t1
             ztop = z + (k + 1) * rise
             flights.append(np.array([np.r_[a0, ztop], np.r_[a1, ztop], np.r_[b1, ztop], np.r_[b0, ztop]]))
-            thick.append(max(ztop - z_base, cfg.slab) if e.solid else abs(rise))
-        if not (e.solid and abs(z + dz - z_hi) > 1e-6):
+            solid_here = fi < e.solid
+            thick.append(max(ztop - z_base, cfg.slab) if solid_here else abs(rise))
+        if not (solid_here and abs(z + dz - z_hi) > 1e-6):
             thick[-1] = cfg.slab      # the top tread is the landing surface: merge with it
         for cc, zz in ((c0, z), (c1, z + dz)):
             key = (cc, round(zz, 3))
             if key not in seen_landings:
                 seen_landings.add(key)
                 landings.append(_rect(corner_xy[cc], np.array([w, w]), zz))
-                landing_thick.append(max(zz - z_base, cfg.slab) if (e.solid and abs(zz - z_hi) > 1e-6) else cfg.slab)
+                landing_thick.append(max(zz - z_base, cfg.slab) if (solid_here and abs(zz - z_hi) > 1e-6) else cfg.slab)
         if fi < n_route:
             route.append(np.r_[p0, z + max(rise, 0)]); route.append(np.r_[p1, z + dz + max(-rise, 0)])
         z += dz
     last_corner = corners_of_side(order[n_route - 1], sense)[1]
     z_exit = z0 + n_route * dz
     route.append(np.r_[corner_xy[last_corner], z_exit])
-    # the stair carries on beyond where the route leaves: extra flights, no route
-    for k in range(int(e.cont)):
+    # the stair carries on beyond where the route leaves: extra flights, then a few treads
+    # of the next flight as a hint; no route on them
+    n_more = int(e.cont) + (1 if e.cont_steps > 0 else 0)
+    for k in range(n_more):
+        partial = e.cont_steps if k == int(e.cont) else 0
         side = (order[n_route - 1] + (k + 1) * sense) % 4
         c0, c1 = corners_of_side(side, sense)
         zc0 = z_exit + k * dz
@@ -493,13 +505,15 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
             l0, r0, l1, r1 = r0, l0, r1, l1
         n_steps = max(3, int(round(abs(dz) / cfg.step_rise)))
         rise = dz / n_steps
-        for k2 in range(n_steps):
+        for k2 in range(min(n_steps, partial) if partial else n_steps):
             t0, t1 = k2 / n_steps, (k2 + 1) / n_steps
             a0 = l0 + (l1 - l0) * t0; a1 = l0 + (l1 - l0) * t1
             b0 = r0 + (r1 - r0) * t0; b1 = r0 + (r1 - r0) * t1
             ztop = zc0 + (k2 + 1) * rise
             flights.append(np.array([np.r_[a0, ztop], np.r_[a1, ztop], np.r_[b1, ztop], np.r_[b0, ztop]]))
             thick.append(abs(rise))
+        if partial:
+            continue                              # a hint only: no landing below
         thick[-1] = cfg.slab
         for cc, zz in ((c0, zc0), (c1, zc0 + dz)):
             key = (cc, round(zz, 3))
@@ -653,9 +667,10 @@ def place_exit_hall(stair: Element, hall: Element, entry: np.ndarray, corridor_f
     # and one landing square into it, so the stair ends exactly where the hall begins
     ext = cfg.foyer_ext if cfg.foyer_ext else max(cfg.hall_min, float(hall.size[k]))
     face = stair.centre[k] + n[k] * stair.size[k] / 2
-    hall.size = stair.size.copy(); hall.size[k] = ext + w
-    hall.centre = stair.centre.copy(); hall.centre[k] = face + n[k] * (ext - w) / 2
+    hall.size = stair.size.copy(); hall.size[k] = ext
+    hall.centre = stair.centre.copy(); hall.centre[k] = face + n[k] * ext / 2
     landing = _corner_xy(stair, exit_corner, w)
+    hall.tabs = [(landing.copy(), np.array([w, w]))]          # the slab also covers the landing you step off
     entry_pt = landing.copy(); entry_pt[k] = face
     hall.entry_pt = entry_pt
     hall.term = entry_pt.copy(); hall.term[k] = face + n[k] * max(ext - 1.5, ext / 2)   # straight ahead, 1.5 m from the end
@@ -724,7 +739,9 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                                      "left": e.size[1] / 2, "right": e.size[1] / 2, "axis": "x", "length": float(e.size[0]),
                                      "left_found": True, "right_found": True, "openings": []}],
                          "left_boundary": quad[[0, 1]].tolist(), "right_boundary": quad[[3, 2]].tolist(),
-                         "outline": quad[:, :2].tolist(), "quads": [quad.tolist()], "atrium": None, "walls": []})
+                         "outline": quad[:, :2].tolist(),
+                         "quads": [quad.tolist()] + [_rect(np.asarray(c, float), np.asarray(sz, float), z).tolist() for c, sz in e.tabs],
+                         "atrium": None, "walls": []})
             # route through the hall: right-angled, from where we come in to where we leave
             lo_h, hi_h = e.centre - e.size / 2, e.centre + e.size / 2
             if e.exit_from is not None:
