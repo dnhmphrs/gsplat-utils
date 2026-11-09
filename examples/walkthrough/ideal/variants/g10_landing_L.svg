@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1077" height="788" viewBox="-578.9 -280.5 1077.2 787.8" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
-<rect x="-578.9" y="-280.5" width="1077.2" height="787.8" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1062" height="788" viewBox="-578.9 -280.5 1061.7 787.8" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+<rect x="-578.9" y="-280.5" width="1061.7" height="787.8" fill="#ffffff"/>
 <g id="level-L0">
-<path d="M -542.88,245.25 L -262.29,313.71 L -212.79,277.48 L -155.64,291.42 L -133.14,274.95 L -470.88,192.54 Z M -50.94,-38.78 L 354.36,60.11 L 462.36,-18.94 L 57.06,-117.84 Z" fill="#ffffff" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-542.88,245.25 -262.29,313.71 -262.29,318.61 -542.88,250.14" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-262.29,313.71 -212.79,277.48 -212.79,282.37 -262.29,318.61" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-212.79,277.48 -155.64,291.42 -155.64,296.32 -212.79,282.37" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-155.64,291.42 -133.14,274.95 -133.14,279.85 -155.64,296.32" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-50.94,-38.78 354.36,60.11 354.36,65.01 -50.94,-33.89" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="354.36,60.11 462.36,-18.94 462.36,-14.05 354.36,65.01" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
+<path d="M -542.88,245.25 L -262.29,313.71 L -212.79,277.48 L -155.64,291.42 L -133.14,274.95 L -470.88,192.54 Z M -35.35,-34.98 L 338.77,56.31 L 446.77,-22.75 L 72.65,-114.03 Z" fill="#ffffff" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-542.88,245.25 -262.29,313.71 -262.29,318.61 -542.88,250.14" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-262.29,313.71 -212.79,277.48 -212.79,282.37 -262.29,318.61" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-212.79,277.48 -155.64,291.42 -155.64,296.32 -212.79,282.37" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-155.64,291.42 -133.14,274.95 -133.14,279.85 -155.64,296.32" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-35.35,-34.98 338.77,56.31 338.77,61.2 -35.35,-30.08" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="338.77,56.31 446.77,-22.75 446.77,-17.85 338.77,61.2" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
 <line x1="69.43" y1="-22.35" x2="75.28" y2="-20.92" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="79.17" y1="-19.97" x2="85.02" y2="-18.54" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="88.91" y1="-17.6" x2="94.77" y2="-16.17" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
@@ -350,7 +350,7 @@
 </g>
 <text x="-564.48" y="-258.9" font-size="18.72" fill="#000000" font-weight="700">Route to G29  ·  landing L</text>
 <g id="key">
-<line x1="-564.48" y1="404.37" x2="483.96" y2="404.37" stroke="#000000" stroke-width="1.1"/>
+<line x1="-564.48" y1="404.37" x2="468.37" y2="404.37" stroke="#000000" stroke-width="1.1"/>
 <circle cx="-555.56" cy="421.65" r="8.93" fill="#000000"/>
 <text x="-555.56" y="426.83" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
 <text x="-536.55" y="426.83" font-size="14.4" fill="#000000" font-weight="500">Start</text>

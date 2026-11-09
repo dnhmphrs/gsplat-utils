@@ -186,36 +186,6 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
     g = cfg.grid
     for e in els:
         e.centre = np.array([_snap(e.centre[0], g), _snap(e.centre[1], g)])
-    if cfg.foyer == "base" and terminals is not None:
-        bases = []
-        for i, e in enumerate(els):
-            if e.kind != "hall" or i not in (0, len(els) - 1):
-                continue
-            nb = els[i + 1] if i == 0 and len(els) > 1 else els[i - 1] if i == len(els) - 1 and len(els) > 1 else None
-            if nb is None or nb.kind != "stairs":
-                continue
-            if i == len(els) - 1 and nb.exit_after:
-                continue        # the route leaves the stair part-way: the hall sits beside it, not under it
-            term = terminals[0] if i == 0 else terminals[1]
-            d = term - nb.centre
-            k = int(np.argmax(np.abs(d)))
-            sign = 1 if d[k] >= 0 else -1
-            edge = nb.centre[k] + sign * nb.size[k] / 2
-            ext = max(cfg.hall_min, abs(term[k] - edge) + 2.0)
-            bases.append((e, nb, k, sign, ext))
-        if bases:
-            ext = _snap(max(b[4] for b in bases), 1.0)      # same extension on both ends: balance
-            for e, nb, k, sign, _ in bases:
-                e.size = nb.size.copy(); e.size[k] += ext
-                e.centre = nb.centre.copy(); e.centre[k] += sign * ext / 2
-                e.base_of = nb
-                t = nb.centre.copy(); t[k] = nb.centre[k] + sign * (nb.size[k] / 2 + ext / 2)
-                if e is els[0]:
-                    # the Start sits in line with the foot of the first flight, so the route walks
-                    # straight onto the stair instead of along the side of the well
-                    side_pt = nb.centre.copy(); side_pt[k] = nb.centre[k] + sign * nb.size[k]
-                    t[1 - k] = _corner_xy(nb, _first_corner(nb, side_pt, _exit_dir(els, els.index(nb)), cfg), cfg.flight_width)[1 - k]
-                e.term = t
     for e in els:
         if e.kind == "corridor":
             if e.axis == "y":
@@ -254,6 +224,38 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
             half_c = cfg.corridor_width / 2
             # corridor outer edge on the corner's side == block edge on that side
             e.centre[k] = _snap(cp[k] + sgn * half_c - sgn * e.size[k] / 2, g)
+    # start/end halls as the floor slab under their staircase: after the blocks have found
+    # their final place against the corridor, so the slab really sits under the stair
+    if cfg.foyer == "base" and terminals is not None:
+        bases = []
+        for i, e in enumerate(els):
+            if e.kind != "hall" or i not in (0, len(els) - 1):
+                continue
+            nb = els[i + 1] if i == 0 and len(els) > 1 else els[i - 1] if i == len(els) - 1 and len(els) > 1 else None
+            if nb is None or nb.kind != "stairs":
+                continue
+            if i == len(els) - 1 and nb.exit_after:
+                continue        # the route leaves the stair part-way: the hall sits beside it, not under it
+            term = terminals[0] if i == 0 else terminals[1]
+            d = term - nb.centre
+            k = int(np.argmax(np.abs(d)))
+            sign = 1 if d[k] >= 0 else -1
+            edge = nb.centre[k] + sign * nb.size[k] / 2
+            ext = max(cfg.hall_min, abs(term[k] - edge) + 2.0)
+            bases.append((e, nb, k, sign, ext))
+        if bases:
+            ext = _snap(max(b[4] for b in bases), 1.0)      # same extension on both ends: balance
+            for e, nb, k, sign, _ in bases:
+                e.size = nb.size.copy(); e.size[k] += ext
+                e.centre = nb.centre.copy(); e.centre[k] += sign * ext / 2
+                e.base_of = nb
+                t = nb.centre.copy(); t[k] = nb.centre[k] + sign * (nb.size[k] / 2 + ext / 2)
+                if e is els[0]:
+                    # the Start sits in line with the foot of the first flight, so the route walks
+                    # straight onto the stair instead of along the side of the well
+                    side_pt = nb.centre.copy(); side_pt[k] = nb.centre[k] + sign * nb.size[k]
+                    t[1 - k] = _corner_xy(nb, _first_corner(nb, side_pt, _exit_dir(els, els.index(nb)), cfg), cfg.flight_width)[1 - k]
+                e.term = t
     # halls next to a stair block must not overlap it: push them out along the main offset axis
     for i, e in enumerate(els):
         if e.kind != "hall" or e.base_of is not None:
