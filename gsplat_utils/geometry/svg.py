@@ -7,6 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
+from .rectunion import is_axis_rect, loop_is_ccw, rect_of, union_loops
+
 PALETTE = {
     "floor": "#e9e6df", "floor_stroke": "#b9b4a8", "wall": "#2b2b2b", "opening": "#9a9a9a",
     "stairs": "#d9d3c4", "path": "#d9482b", "label": "#111111", "label_dot": "#d9482b",
@@ -70,30 +72,46 @@ def write_plan_svg(path, diagram: dict, level_id: int | None, bounds: tuple[floa
     runs = diagram["runs"]
     sel = [r for r in runs if level_id is None or r["kind"] == "stairs" or r["level"] == level_id]
     sel = [r for r in sel if r["kind"] != "stairs"] + [r for r in sel if r["kind"] == "stairs"]   # floors under flights
-    # floors
+    # floors: coplanar axis-aligned flats merged per height (no borders inside a continuous floor)
+    merged: dict[float, list] = {}
     for r in sel:
         if r["kind"] == "stairs" and level_id is not None and level_id not in (r["level_from"], r["level_to"]):
             continue
         if r["kind"] == "stairs" and r.get("atrium"):   # gallery ring first, flights on top
-            upper_only = r["atrium"].get("ring_levels") == "upper"
+            ring_mode = r["atrium"].get("ring_levels", "both")
             upper = max(r["level_from"], r["level_to"])
-            if not upper_only or level_id is None or level_id == upper:
+            if ring_mode in ("upper", "both") and (ring_mode == "both" or level_id is None or level_id == upper):
                 for q in r["atrium"].get("ring", []):
                     out.append(_poly(np.array([P(p) for p in q]), fill="#f7f5f0", stroke="#8c8577", stroke_width=0.8))
+        thick = r.get("quad_thickness") or [None] * len(r.get("quads") or [])
+        rest = []
+        for q, th in zip(r.get("quads") or [r["outline"]], thick if len(thick) == len(r.get("quads") or [r["outline"]]) else [None] * len(r.get("quads") or [r["outline"]])):
+            qa = np.array(q, float)
+            flat = qa.shape[1] == 3 and np.ptp(qa[:, 2]) <= 1e-6
+            is_step = r["kind"] == "stairs" and r.get("steps") and th is not None and th < 0.1
+            if flat and not is_step and is_axis_rect(qa):
+                merged.setdefault(round(float(qa[0, 2]), 3), []).append(rect_of(qa))
+            else:
+                rest.append(q)
         fill = PALETTE["stairs"] if r["kind"] == "stairs" else PALETTE["floor"]
-        for q in r.get("quads") or [r["outline"]]:
+        for q in rest:
             pts = np.array([P(p) for p in q])
             out.append(_poly(pts, fill=fill, stroke="none" if draw_walls else PALETTE["wall"],
                              stroke_width=1.2, stroke_linejoin="round", fill_opacity=0.95))
-        if r["kind"] == "stairs":
+        if r["kind"] == "stairs" and not r.get("steps"):
             out.extend(_tread_lines(r, P, px_per_m))
-            if r.get("atrium"):
-                at = r["atrium"]
-                c = np.array([P(p) for p in at["corners"]])
-                out.append(_poly(c, fill="white", stroke="#4a4a4a", stroke_width=1.2, stroke_dasharray="5 3"))
-                # diagonal cross = void (architectural convention)
-                out.append(_line(c[0], c[2], stroke="#9a9a9a", stroke_width=0.8))
-                out.append(_line(c[1], c[3], stroke="#9a9a9a", stroke_width=0.8))
+        if r["kind"] == "stairs" and r.get("atrium") and r["atrium"].get("void_lines", True):
+            at = r["atrium"]
+            c = np.array([P(p) for p in at["corners"]])
+            out.append(_poly(c, fill="white", stroke="#4a4a4a", stroke_width=1.2, stroke_dasharray="5 3"))
+            # diagonal cross = void (architectural convention)
+            out.append(_line(c[0], c[2], stroke="#9a9a9a", stroke_width=0.8))
+            out.append(_line(c[1], c[3], stroke="#9a9a9a", stroke_width=0.8))
+    for z, rects in sorted(merged.items()):
+        loops = union_loops(rects)
+        d_parts = ["M " + " L ".join(f"{_fmt(x)},{_fmt(y)}" for x, y in np.array([P(p) for p in lp])) + " Z" for lp in loops]
+        out.insert(2, f'<path d="{" ".join(d_parts)}" fill="{PALETTE["floor"]}" fill-rule="evenodd" '
+                      f'stroke="{PALETTE["wall"]}" stroke-width="1.2" stroke-linejoin="round" fill-opacity="0.95"/>')
     # walls
     for r in (sel if draw_walls else []):
         if r["kind"] == "stairs":
@@ -326,6 +344,30 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             p2s, ds = view.project(side)
             faces.add(layer, _quad_depth(ds) - 0.02, poly(p2s * ppm, _side_tone(n, view, sa, sb)))
 
+    # coplanar axis-aligned flat surfaces are merged per height so touching
+    # slabs, landings and walkways share one outline (no borders inside)
+    flat_groups: dict[tuple, dict] = {}
+
+    def collect_flat(quad: np.ndarray, off: float, layer: str, layer_rank: int, thickness: float, fill: str) -> bool:
+        if not is_axis_rect(quad) or np.ptp(quad[:, 2]) > 1e-6:
+            return False
+        key = (round(float(quad[0, 2]), 3), round(float(off), 3), round(float(thickness), 3))
+        g = flat_groups.setdefault(key, {"rects": [], "layer": layer, "rank": layer_rank, "fill": fill,
+                                         "z": float(quad[0, 2]), "off": float(off), "thickness": float(thickness)})
+        g["rects"].append(rect_of(quad))
+        if layer_rank > g["rank"]:
+            g["layer"], g["rank"], g["fill"] = layer, layer_rank, fill
+        return True
+
+    def layer_rank_of(layer: str) -> int:
+        # level-L1 above stairs-L0 above level-L0 ...
+        kind, _, num = layer.partition("-L")
+        try:
+            n = int(num)
+        except ValueError:
+            n = 0
+        return n * 2 + (1 if kind == "stairs" else 0) + (1 if kind == "level" else 0) * 0
+
     for r in diagram["runs"]:
         layer = run_layer(r)
         quads = [np.array(q, float) for q in (r.get("quads") or [])]
@@ -341,9 +383,20 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
 
             def off_at(z):
                 return lo_ + (hi_ - lo_) * (z - z_lo) / span
+
+            def at_hi(_r):
+                return True
             is_steps = bool(r.get("steps"))
             for quad, th in zip(quads, thick):
                 offs = np.array([off_at(z) for z in quad[:, 2]])
+                if is_steps and abs(th - slab) < 1e-6 and np.ptp(quad[:, 2]) <= 1e-6:
+                    # landing / walkway: merge with the floor it belongs to
+                    zq = float(quad[0, 2])
+                    lid = r["level_to"] if abs(zq - (z_hi if r["level_to"] >= 0 and at_hi(r) else z_lo)) < 1e-6 else -1
+                    target_layer = f"level-L{r['level_to']}" if (r["level_to"] >= 0 and abs(zq - z_hi) < 1e-6 and r["level_to"] > r["level_from"]) else \
+                                   f"level-L{r['level_from']}" if (r["level_from"] >= 0 and abs(zq - z_hi) < 1e-6 and r["level_from"] > r["level_to"]) else layer
+                    if collect_flat(quad, float(offs[0]), target_layer, layer_rank_of(target_layer), th, S["stairs_top"]):
+                        continue
                 slab_faces(layer, quad, offs, S["stairs_top"], th,
                            side_fills=(S["riser"], S["riser"]) if is_steps else None)
                 if not is_steps and abs(quad[1, 2] - quad[0, 2]) > 1e-6:   # tread lines on sloped slabs
@@ -388,7 +441,8 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         else:
             off = lvl_off(r["level"])
             for quad, th in zip(quads, thick):
-                slab_faces(layer, quad, [off] * 4, S["floor_top"], th)
+                if not collect_flat(quad, off, layer, layer_rank_of(layer), th, S["floor_top"]):
+                    slab_faces(layer, quad, [off] * 4, S["floor_top"], th)
             for w in (r["walls"] if draw_walls else []):
                 a, b = np.array(w["a"]), np.array(w["b"])
                 z0 = w["z0"]
@@ -407,6 +461,38 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                     p2, d = P(np.array([[*pa, z0], [*pb, z0]]), off)
                     faces.add(layer, _quad_depth(d), _line(p2[0], p2[1], stroke=S["muted"], stroke_width=lw,
                                                             stroke_dasharray="3 3"))
+    # merged flats: one outline per connected coplanar surface, side faces on its boundary
+    _, _, wv = view.axes()
+    for g in flat_groups.values():
+        loops = union_loops(g["rects"])
+        if not loops:
+            continue
+        z = g["z"] + g["off"]
+        allp = np.vstack(loops)
+        p3 = np.c_[allp, np.full(len(allp), z)]
+        p2all, dall = view.project(p3); all_pts.append(p2all)
+        depth = float(dall.mean())
+        d_parts = []
+        for lp in loops:
+            p2, _ = view.project(np.c_[lp, np.full(len(lp), z)])
+            d_parts.append("M " + " L ".join(f"{_fmt(x * ppm)},{_fmt(y * ppm)}" for x, y in p2) + " Z")
+        faces.add(g["layer"], depth - 0.03,
+                  f'<path d="{" ".join(d_parts)}" fill="{g["fill"]}" fill-rule="evenodd" stroke="{S["line"]}" '
+                  f'stroke-width="{lw}" stroke-linejoin="round"/>')
+        for lp in loops:
+            n_ = len(lp)
+            for k in range(n_):
+                a, b = lp[k], lp[(k + 1) % n_]
+                e = b - a
+                nrm = np.array([e[1], -e[0]]) if loop_is_ccw(lp) else np.array([-e[1], e[0]])
+                nrm = nrm / max(np.linalg.norm(nrm), 1e-9)
+                if np.array([nrm[0], nrm[1], 0.0]) @ wv <= 0:
+                    continue
+                side = np.array([[*a, z], [*b, z], [*b, z - g["thickness"]], [*a, z - g["thickness"]]])
+                p2s, ds = view.project(side)
+                faces.add(g["layer"], float(ds.mean()) - 0.02,
+                          poly(p2s * ppm, _side_tone(nrm, view, S["floor_side_a"], S["floor_side_b"])))
+
     # path: one dashed polyline per continuous stretch; on stairs it climbs with the flights
     if show_path:
         pts = np.array(diagram["path"]["points"])
