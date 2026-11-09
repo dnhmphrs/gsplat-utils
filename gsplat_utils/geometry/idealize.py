@@ -251,13 +251,16 @@ def _layout(els: list[Element], cfg: IdealConfig, terminals: tuple[np.ndarray, n
             bases.append((e, nb, k, sign, ext))
         if bases:
             ext = _snap(max(b[4] for b in bases), 1.0)      # same extension on both ends: balance
+            w = cfg.flight_width
             for e, nb, k, sign, _ in bases:
-                # the slab is as deep as the stair block and sits flush against it, not under it
-                e.size = nb.size.copy(); e.size[k] = ext
-                e.centre = nb.centre.copy(); e.centre[k] += sign * (nb.size[k] / 2 + ext / 2)
+                # the slab is as deep as the stair block, runs `ext` out from the block face and one
+                # landing square into it, so the foyer ends exactly where the first flight starts
+                face = nb.centre[k] + sign * nb.size[k] / 2
+                e.size = nb.size.copy(); e.size[k] = ext + w
+                e.centre = nb.centre.copy(); e.centre[k] = face + sign * (ext - w) / 2
                 e.base_of = nb
                 # the Start/End point sits 1.5 m in from the far end of the slab, clear of the bridge
-                t = nb.centre.copy(); t[k] = nb.centre[k] + sign * (nb.size[k] / 2 + max(ext - 1.5, ext / 2))
+                t = nb.centre.copy(); t[k] = face + sign * max(ext - 1.5, ext / 2)
                 if e is els[0]:
                     # the Start sits in line with the foot of the first flight, so the route walks
                     # straight onto the stair instead of along the side of the well
@@ -602,17 +605,16 @@ def place_exit_hall(stair: Element, hall: Element, entry: np.ndarray, corridor_f
         side = max(free, key=lambda sd: float(normals[sd] @ away))
     n = normals[side]
     k = 0 if side in (1, 3) else 1
-    hall.size = np.array([max(hall.size[0], cfg.hall_min), max(hall.size[1], cfg.hall_min)])
-    hall.centre = stair.centre + n * (stair.size[k] / 2 + hall.size[k] / 2)
-    # the hall's edge is flush with the block's edge at the exit corner, so you step off
-    # the landing straight into it (no walk along the side of the well)
-    corner_sign = {0: (-1, -1), 1: (1, -1), 2: (1, 1), 3: (-1, 1)}
-    cs = corner_sign[exit_corner][1 - k]
-    hall.centre[1 - k] = stair.centre[1 - k] + cs * (stair.size[1 - k] / 2 - hall.size[1 - k] / 2)
-    landing = stair.centre + np.array(corner_sign[exit_corner], float) * (stair.size / 2 - w / 2)
-    entry_pt = landing.copy(); entry_pt[k] = stair.centre[k] + n[k] * stair.size[k] / 2
+    # the same slab as a start foyer: as deep as the block, `foyer_ext` out from the block face
+    # and one landing square into it, so the stair ends exactly where the hall begins
+    ext = cfg.foyer_ext if cfg.foyer_ext else max(cfg.hall_min, float(hall.size[k]))
+    face = stair.centre[k] + n[k] * stair.size[k] / 2
+    hall.size = stair.size.copy(); hall.size[k] = ext + w
+    hall.centre = stair.centre.copy(); hall.centre[k] = face + n[k] * (ext - w) / 2
+    landing = _corner_xy(stair, exit_corner, w)
+    entry_pt = landing.copy(); entry_pt[k] = face
     hall.entry_pt = entry_pt
-    hall.term = entry_pt.copy(); hall.term[k] = hall.centre[k]      # straight ahead to the middle of the hall
+    hall.term = entry_pt.copy(); hall.term[k] = face + n[k] * max(ext - 1.5, ext / 2)   # straight ahead, 1.5 m from the end
     hall.base_of = None
     hall.exit_from = stair
 

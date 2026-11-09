@@ -69,14 +69,12 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
   width so the top landings are clean Ls, the stair carrying on below the antechamber,
   only walked surfaces drawn, markers off the drawing in a key.
 
-## Easter egg
-The route of the sign itself (`route_to_g29.svg`, one folder up) carries
-"Wovonmannichtsprechenkanndarübermussmanschweigen" in Morse, no spaces or punctuation so it does not
-read as a message at a glance: `--morse "Wovonmannichtsprechenkanndarübermussmanschweigen" --morse-unit 0`.
-The text needs 443 units (48 letters, ü as ..--); the visible route is 1604 px of
-1847 px at 36 px/m, so stretched to fill it the dot is 3.6 px (a 4 px dot would allow about
-42 characters of plain English). The message pauses where the route passes under the bridge
-and resumes after it. `route_to_g29_dashed.svg` is the same drawing with plain dashes.
+## Morse option
+`--morse "TEXT"` turns the route's dashes into the text in Morse (`--morse-unit 0` stretches
+it over the whole route; marks pause where the route is hidden). For this drawing the route
+is about 1850 px on the page at 36 px/m with about 1600 px visible: 400 units at a 4 px dot,
+roughly 38 characters of English with spaces, 50 at a 3 px dot. The sign itself uses plain
+dashes.
 
 ## Recommendation
 `a2_az-60_base` for the sign. If the second staircase must be read tread by tread, use

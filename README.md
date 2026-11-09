@@ -214,7 +214,8 @@ on a 0.5 m grid: halls as rectangles, the corridor as a straight slab the same w
 the stair landings (`--corridor-width` to change it), each open-well stair as a square
 well (`--void-side`, default the measured median) with flights of `--flight-width` around
 it, quarter landings, real steps, a start/end hall drawn as a slab as deep as its stair
-block and flush against it (`--foyer beside` for the measured rectangle), the route climbing the flights, numbered
+block, reaching one landing square into it so the floor ends exactly where the steps start
+(`--foyer beside` for the measured rectangle), the route climbing the flights, numbered
 markers with a short key instead of text on the drawing (`--labels-inline` to revert). On
 the stairs only the walked surfaces are drawn: flights, landings and the stretch of
 gallery the route crosses (`--gallery upper|both|none` and `--void-lines` add the full
@@ -243,8 +244,7 @@ sign was made with
 
 ```bash
 gsu idealize --theme mono --title "Route to G29" --end-label G29 \
-    --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4 \
-    --morse "Wovonmannichtsprechenkanndarübermussmanschweigen" --morse-unit 0
+    --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4
 ```
 
 Drawing rules: touching coplanar surfaces (slabs, landings, the top tread of a flight)
@@ -266,6 +266,7 @@ over the whole route). Marks are placed only
 on the visible stretches of the route, so the message pauses where the route passes under
 a slab and carries on after it. The log reports the route's visible length, the units
 available and roughly how many characters of English that is; `--morse ""` just reports.
+A hall entered from a stair gets the same slab as a start foyer.
 `python scripts/make_variants.py --work work --out variants/` renders a labelled contact
 sheet of angle and geometry variants. This is the drawing to hand to the sign designer;
 the measured one is the evidence behind it.
