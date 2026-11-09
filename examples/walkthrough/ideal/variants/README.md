@@ -2,8 +2,9 @@
 
 All in the locked style (black line on white, numbered markers, key below; hidden edges
 of the stairs as light dashed lines) and the locked geometry: both stairs anticlockwise,
-three flights up, the bridge in line with the top of each stair (no dog-leg landings), a
-full turn of four flights down, then straight off the landing into the antechamber.
+three flights up ending in the bridge's direction, the bridge one straight line from the
+top of the first stair onto the first flight of the second, a full turn of four flights
+down, then straight off the landing into the antechamber.
 `contact_sheet.png` shows them side by side; each `*.svg` is editable (layers per level,
 stairs, hidden lines, path, labels, key).
 
@@ -49,10 +50,9 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 * **The antechamber is a box.** Its 9 × 4 m comes from the measured hall; where the G29
   door actually is was not filmed, so the marker sits at the end of a straight run off the
   landing. The stair carrying on below it is not drawn (`--continue 0,1` adds a flight).
-* **The bridge passes over the foot of the first stair.** With the bridge in line with
-  the top of the flights, the upper walkway sits above the first flight's landing, so the
-  route from Start runs under it for a metre before the first step; true to an open-well
-  stair, but the Start side of the drawing is busier than before.
+* **The route from Start passes under the end of the bridge.** The bridge continues the
+  last flight, so its first landing sits above the ground-floor corner the Start route
+  crosses on its way to the first step; true to an open-well stair, hidden for a metre.
 * **Scale is a prior, not a measurement**: lengths follow the 1.5 m camera-height
   assumption, the 3.5 m wells are the median of two very different measured wells, and the
   storey height (4.25 m) comes from the drift-corrected climb.
