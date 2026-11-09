@@ -216,7 +216,9 @@ default the measured median) with three flights of `--flight-width` around it, q
 landings and a gallery on the upper level, real steps, a start/end hall drawn as the
 floor slab under its staircase (`--foyer beside` for a separate room), the route climbing
 the flights, numbered markers with a short key instead of text on the drawing
-(`--labels-inline` to revert). Outputs `plan.svg`, `plan_L*.svg`, `iso.svg`,
+(`--labels-inline` to revert). On the stairs only the walked surfaces are drawn: flights,
+landings and the stretch of gallery the route crosses (`--gallery upper|both|none` and
+`--void-lines` add the full gallery ring or the well's wireframe). Outputs `plan.svg`, `plan_L*.svg`, `iso.svg`,
 `iso_noroute.svg`, `iso_exploded.svg`, `diagram.glb/.obj`, the schematic `diagram.json`
 and one isometric per colour theme in `styles/` (`light`, `dark` = off-black with white
 lines, `blueprint`, `mono` line art, `paper`, `slate`; `--theme` picks the main one,

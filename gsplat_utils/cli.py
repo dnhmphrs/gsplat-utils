@@ -384,9 +384,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--wells", choices=["median", "measured"], default="median",
                    help="one square well for every stair, or each stair's own measured well size")
     p.add_argument("--flights", type=int, default=None, help="flights per storey around a well (default from the height)")
-    p.add_argument("--gallery", choices=["upper", "both", "none"], default="upper")
-    p.add_argument("--no-void-lines", dest="void_lines", action="store_false")
-    p.add_argument("--iso-elevation", type=float, default=35.264)
+    p.add_argument("--gallery", choices=["traversed", "upper", "both", "none"], default="traversed",
+                   help="gallery at the top of a stair: only the walked stretch (default), full ring, both levels, none")
+    p.add_argument("--void-lines", dest="void_lines", action="store_true", default=False,
+                   help="draw the wireframe box of each open well")
+    p.add_argument("--iso-elevation", type=float, default=25.0)
     p.add_argument("--mid-steps", action="append", default=[], metavar="FRACTION:N",
                    help="short flight inside the corridor, e.g. 0.55:4 (negative N = down); repeatable")
     p.add_argument("--entry-steps", type=int, default=0,

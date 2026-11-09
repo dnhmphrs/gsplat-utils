@@ -31,9 +31,9 @@ class IdealConfig:
     step_run: float = 0.28            # tread depth of straight (non-well) flights (m)
     void_mode: str = "median"         # "median": one square well for all stairs; "measured": each stair its own (rounded)
     flights: int | None = None        # flights per storey around a well (None = from the storey height)
-    gallery: str = "upper"            # "upper" | "both" | "none"
-    void_lines: bool = True           # wireframe box of the open well
-    iso_elevation: float = 35.264
+    gallery: str = "traversed"        # "traversed" (only the walked stretch) | "upper" | "both" | "none"
+    void_lines: bool = False          # wireframe box of the open well
+    iso_elevation: float = 25.0
     mid_steps: list = field(default_factory=list)   # [(fraction_along_corridor, n_steps)] short flights inside corridors
     entry_steps: int = 0              # straight flight between a lower entrance foyer and the first stair
     foyer: str = "base"               # "base": a start/end hall is the floor slab under its staircase; "beside": separate rectangle
@@ -350,10 +350,30 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
     route_gallery = gallery
     void_corners = _rect(c, e.void_size, 0.0)[:, :2]
     from .stairs import gallery_ring
+    ring_mode = cfg.gallery if cfg.gallery in ("upper", "both", "none") else "none"
     atrium = {"corners": void_corners.round(4).tolist(), "z0": float(z0), "z1": float(z1), "flight_width": w,
-              "ring": [np.round(q, 4).tolist() for q in gallery_ring(void_corners, w)] if cfg.gallery != "none" else [],
-              "inferred_ring": True, "ring_levels": cfg.gallery, "void_lines": bool(cfg.void_lines)}
-    return flights, landings, atrium, (route, route_gallery), thick
+              "ring": [np.round(q, 4).tolist() for q in gallery_ring(void_corners, w)] if ring_mode != "none" else [],
+              "inferred_ring": True, "ring_levels": ring_mode, "void_lines": bool(cfg.void_lines)}
+    # traversed gallery: slabs only under the upper-level legs the route actually walks
+    walkways = []
+    if cfg.gallery == "traversed":
+        upper = max(z0, z1)
+        legs = []
+        if entry is not None and abs(z0 - upper) < 1e-6:
+            legs.append(route[:3])
+        if abs(z1 - upper) < 1e-6:
+            legs.append([route[-1]] + route_gallery)
+        for leg in legs:
+            for a_, b_ in zip(leg[:-1], leg[1:]):
+                a2, b2 = np.asarray(a_[:2], float), np.asarray(b_[:2], float)
+                dv = b2 - a2; L = float(np.linalg.norm(dv))
+                if L < 1e-6:
+                    continue
+                dv /= L; nn = np.array([-dv[1], dv[0]])
+                a2e, b2e = a2 - dv * w / 2, b2 + dv * w / 2      # extend so the strips meet at corners
+                walkways.append(np.array([np.r_[a2e + nn * w / 2, upper], np.r_[b2e + nn * w / 2, upper],
+                                          np.r_[b2e - nn * w / 2, upper], np.r_[a2e - nn * w / 2, upper]]))
+    return flights, landings + walkways, atrium, (route, route_gallery), thick
 
 
 def _straight_flight(a: np.ndarray, b: np.ndarray, width: float, za: float, zb: float, cfg: IdealConfig):
