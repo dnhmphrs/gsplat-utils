@@ -245,7 +245,7 @@ sign was made with
 ```bash
 gsu idealize --theme mono --title "Route to G29" --end-label G29 \
     --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4 \
-    --iso-azimuth 120 --iso-elevation 35 --corridor-max 9 --break-gap 0
+    --iso-azimuth 120 --iso-elevation 35 --corridor-max 11 --break-gap 0
 ```
 
 The key has five steps: Start, the first stair, `--corridor-label` at the middle of the
@@ -257,7 +257,7 @@ from each tread down to the foyer floor, the flights above floating as usual;
 landing, a hint that it carries on (`--continue 0,1` would draw a whole flight). A foyer
 that is not under its stair reaches into the block only over the landing square the route
 crosses.
-`--corridor-max 9` draws a longer corridor at 9 m, sliding everything beyond it closer;
+`--corridor-max 11` draws a longer corridor at 11 m, sliding everything beyond it closer;
 with a `--break-gap` above zero the shortened corridor gets a zig-zag break mark and a
 gap in slab and route. `--shaft-lines up,both` draws dashed verticals at the four corners
 of each stair block (the stairwell), running `--shaft-ext` metres past the stair's top

@@ -6,7 +6,7 @@ three flights up (south side, back, north side) with the walkway along the west 
 the well running straight on as the bridge onto the first flight of the second stair, a
 full turn of four flights down, then straight off the last step into a foyer the same
 size as the first, each 5 m long and meeting the first or last step. The bridge is drawn
-at 9 m (it is 19 m) without a break mark, and the sign's view is azimuth 120 at a 35°
+at 11 m (it is 19 m) without a break mark, and the sign's view is azimuth 120 at a 35°
 eye point, from behind the Start: at 25° the second and third flights of the first stair
 fall on the same patch of page and their routes cross. `contact_sheet.png`
 shows everything side by side, `contact_sheet_angles.png` the front angles and

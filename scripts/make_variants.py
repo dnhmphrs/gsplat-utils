@@ -80,7 +80,7 @@ def main() -> None:
     # second stair, a full turn of four flights down, straight off into the antechamber
     base = IdealConfig(theme=a.theme, title=a.title, end_label=a.end_label, all_themes=False,
                        stair_sense=["ccw", "ccw"], stair_flights=[3, 4], exit_after=[0, 4],
-                       iso_azimuth=120, iso_elevation=35, corridor_max=9.0, break_gap=0.0)
+                       iso_azimuth=120, iso_elevation=35, corridor_max=11.0, break_gap=0.0)
     made = []
     for name, cfg_over, view_over in VARIANTS:
         if a.only and name not in a.only:

@@ -971,9 +971,12 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         all_pts.append(np.array([[A_[k, 0] / ppm - fs * 3.5 / ppm, A_[k, 1] / ppm + fs * 2 / ppm]]))
 
     A = np.vstack(all_pts) * ppm
-    pad = fs * 2.5
-    x0, y0 = A.min(axis=0) - pad; x1, y1 = A.max(axis=0) + pad
-    top_extra = fs * 2.6 if title else fs
+    # margins: generous at the sides, tight above so the drawing sits high on the page with
+    # the title close over it, the key below
+    pad = fs * 2.0
+    x0 = A[:, 0].min() - pad; x1 = A[:, 0].max() + pad
+    y0 = A[:, 1].min() - fs * 1.0; y1 = A[:, 1].max() + fs * 1.5
+    top_extra = fs * 2.0 if title else fs * 0.5
     key_h = (len(key_rows) + 0.5) * fs * 1.5 + fs if key_rows else 0.0
     W, H = x1 - x0, (y1 - y0) + top_extra + key_h
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.0f}" height="{H:.0f}" '
@@ -1003,7 +1006,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
     order_layers += ["hidden", "path", "labels"]
     out += faces.emit(order_layers)
     if title:
-        out.append(_text((x0 + fs, y0 - fs * 1.1), title, fs * 1.3, fill=S["title"], font_weight="700"))
+        out.append(_text((x0 + fs, y0 - fs * 0.5), title, fs * 1.3, fill=S["title"], font_weight="700"))
     if key_rows:
         out.append('<g id="key">')
         ky = y1 + fs * 1.2
