@@ -19,25 +19,9 @@
     "style": "zones",
     "run_from": 2,
     "label_from": 1,
-    "stair_run": 1,
-    "names": [
-      {
-        "text": "Medical Science Building",
-        "xyz": [
-          7.6,
-          4.5,
-          0.0
-        ]
-      },
-      {
-        "text": "Anatomy Building",
-        "xyz": [
-          7.6,
-          -12.5,
-          0.0
-        ]
-      }
-    ]
+    "key_headers": false,
+    "zone_offset": 1.5,
+    "stair_run": 1
   },
   "note": "idealised schematic on a 0.5 m grid from the measured diagram",
   "levels": [
@@ -4363,7 +4347,9 @@
     "threshold": "Medical Science Building|Anatomy Building",
     "threshold_style": "zones",
     "threshold_label": "Through the door into the {to}",
-    "building_names": true,
+    "building_names": false,
+    "key_headers": false,
+    "zone_offset": 1.5,
     "solid_stairs": [],
     "continue_steps": [],
     "path_morse": null,

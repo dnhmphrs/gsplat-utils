@@ -128,7 +128,7 @@ def cmd_idealize(a: argparse.Namespace) -> None:
                       solid_stairs=[x.strip() for x in a.solid_stairs.split(",") if x.strip()],
                       continue_steps=[int(x) for x in a.continue_steps.split(",") if x.strip()],
                       threshold=a.threshold, threshold_style=a.threshold_style, threshold_label=a.threshold_label,
-                      building_names=a.building_names)
+                      building_names=a.building_names, key_headers=a.key_headers, zone_offset=a.zone_offset)
     run_idealize(Workspace(a.work), cfg, diagram_path=a.diagram, out_dir=a.out)
 
 
@@ -426,6 +426,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="how the door is drawn: plan door symbol, standing frame, tinted floors beyond it, or a boundary line")
     p.add_argument("--threshold-label", default="Through the door into the {to}", help="key entry at the door ({to}/{frm} are the building names; \"\" = none)")
     p.add_argument("--no-building-names", dest="building_names", action="store_false", help="do not write the building names on the foyer slabs")
+    p.add_argument("--no-key-headers", dest="key_headers", action="store_false", help="do not group the key under the building names")
+    p.add_argument("--zone-offset", type=float, default=0.0, help="zones style: the tint starts this far beyond the door, m")
     p.add_argument("--solid-stairs", default="", help="per stair: how many flights from the bottom are a solid mass down to the stair's lowest floor, e.g. 2,0")
     p.add_argument("--continue-steps", default="", help="per stair: treads of the next flight drawn beyond the exit, a hint the stair carries on, e.g. 0,3")
     p.add_argument("--hidden-lines", choices=["stairs", "all", "none"], default="stairs",

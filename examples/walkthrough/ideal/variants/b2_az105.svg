@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="654" height="891" viewBox="-620.3 -526.2 654.4 891.3" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
-<rect x="-620.3" y="-526.2" width="654.4" height="891.3" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="654" height="831" viewBox="-620.3 -526.2 654.4 830.8" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+<rect x="-620.3" y="-526.2" width="654.4" height="830.8" fill="#ffffff"/>
 <g id="level-L0">
 <path d="M 5.33,-330.53 L -168.54,-357.25 L -212.8,-262.51 L -276.55,-272.31 L -288.19,-247.38 L -50.58,-210.86 Z" fill="#ededed" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-288.19,-247.38 -50.58,-210.86 -50.58,-206.43 -288.19,-242.95" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-50.58,-210.86 5.33,-330.53 5.33,-326.1 -50.58,-206.43" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
 <line x1="-240.35" y1="-255.15" x2="-234.48" y2="-254.25" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
@@ -176,8 +176,7 @@
 <line x1="-435.86" y1="-42.5" x2="-430.15" y2="-43.34" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 </g>
 <g id="level-L1">
-<path d="M -371.19,-48.77 L -429.87,-57.79 L -441.52,-32.86 L -382.84,-23.84 Z" fill="#ffffff" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-441.52,-32.86 -382.84,-23.84 -382.84,-19.42 -441.52,-28.44" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-382.84,-23.84 -371.19,-48.77 -371.19,-44.35 -382.84,-19.42" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
-<path d="M -212.8,-387.84 L -256.26,-394.52 L -426.31,-30.52 L -382.84,-23.84 Z" fill="#ededed" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-426.31,-30.52 -382.84,-23.84 -382.84,-19.42 -426.31,-26.1" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-382.84,-23.84 -212.8,-387.84 -212.8,-383.42 -382.84,-19.42" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
+<path d="M -212.8,-387.84 L -256.26,-394.52 L -400.68,-85.37 L -357.22,-78.69 Z" fill="#ededed" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-400.68,-85.37 -357.22,-78.69 -357.22,-74.27 -400.68,-80.95" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-357.22,-78.69 -212.8,-387.84 -212.8,-383.42 -357.22,-74.27" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
 <line x1="-242.87" y1="-375.09" x2="-240.35" y2="-380.48" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="-247.09" y1="-366.07" x2="-244.57" y2="-371.46" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="-251.3" y1="-357.05" x2="-248.78" y2="-362.45" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
@@ -210,6 +209,7 @@
 <line x1="-365.05" y1="-113.56" x2="-362.53" y2="-118.96" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="-369.26" y1="-104.54" x2="-366.74" y2="-109.94" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="-373.47" y1="-95.52" x2="-370.95" y2="-100.92" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
+<path d="M -357.22,-78.69 L -400.68,-85.37 L -414.66,-55.45 L -429.87,-57.79 L -441.52,-32.86 L -382.84,-23.84 Z" fill="#ffffff" fill-rule="evenodd" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-441.52,-32.86 -382.84,-23.84 -382.84,-19.42 -441.52,-28.44" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/><polygon points="-382.84,-23.84 -357.22,-78.69 -357.22,-74.27 -382.84,-19.42" fill="#ffffff" stroke="#000000" stroke-width="1.1" stroke-linejoin="round"/>
 <line x1="-377.69" y1="-86.51" x2="-375.17" y2="-91.9" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <line x1="-381.9" y1="-77.49" x2="-379.38" y2="-82.88" stroke="#000000" stroke-width="1.9800000000000002" stroke-linecap="butt"/>
 <polyline points="-360.48,-72.3 -365.38,-72.87 -370.36,-73.1 -375.36,-72.99 -380.29,-72.53 -385.09,-71.73 -389.69,-70.61 -394.02,-69.17 -398.02,-67.45 -401.62,-65.46 -404.79,-63.24 -407.46,-60.82 -409.6,-58.23 -411.18,-55.51" fill="none" stroke="#000000" stroke-width="0.8800000000000001" stroke-dasharray="2.5 2.5" stroke-linecap="butt"/>
@@ -328,31 +328,27 @@
 <line x1="-96.91" y1="-231.34" x2="-96.91" y2="-269.67" stroke="#000000" stroke-width="1.1"/>
 <circle cx="-96.91" cy="-278.6" r="8.93" fill="#000000" stroke="#ffffff" stroke-width="1.1"/>
 <text x="-96.91" y="-273.42" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">6</text>
-<text x="-306.21" y="53.46" font-size="11.23" fill="#555555" font-weight="600" text-anchor="middle" letter-spacing="0.12em">MEDICAL SCIENCE BUILDING</text>
-<text x="-147.81" y="-285.61" font-size="11.23" fill="#555555" font-weight="600" text-anchor="middle" letter-spacing="0.12em">ANATOMY BUILDING</text>
 </g>
 <text x="-605.88" y="-504.63" font-size="18.72" fill="#000000" font-weight="700">Route to G29  ·  az105</text>
 <g id="key">
 <line x1="-605.88" y1="158.45" x2="19.73" y2="158.45" stroke="#000000" stroke-width="1.1"/>
-<text x="-605.88" y="180.92" font-size="11.52" fill="#555555" font-weight="700" letter-spacing="0.12em">MEDICAL SCIENCE BUILDING</text>
+<circle cx="-596.95" cy="175.73" r="8.93" fill="#000000"/>
+<text x="-596.95" y="180.92" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
+<text x="-577.95" y="180.92" font-size="14.4" fill="#000000" font-weight="500">Start</text>
 <circle cx="-596.95" cy="197.33" r="8.93" fill="#000000"/>
-<text x="-596.95" y="202.52" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
-<text x="-577.95" y="202.52" font-size="14.4" fill="#000000" font-weight="500">Start</text>
+<text x="-596.95" y="202.52" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
+<text x="-577.95" y="202.52" font-size="14.4" fill="#000000" font-weight="500">Stairs up one floor</text>
 <circle cx="-596.95" cy="218.93" r="8.93" fill="#000000"/>
-<text x="-596.95" y="224.12" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
-<text x="-577.95" y="224.12" font-size="14.4" fill="#000000" font-weight="500">Stairs up one floor</text>
-<text x="-605.88" y="254.36" font-size="11.52" fill="#555555" font-weight="700" letter-spacing="0.12em">ANATOMY BUILDING</text>
-<circle cx="-596.95" cy="270.77" r="8.93" fill="#000000"/>
-<text x="-596.95" y="275.96" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
-<text x="-577.95" y="275.96" font-size="14.4" fill="#000000" font-weight="500">Through the door into the Anatomy Building</text>
-<circle cx="-596.95" cy="292.37" r="8.93" fill="#000000"/>
-<text x="-596.95" y="297.56" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
-<text x="-577.95" y="297.56" font-size="14.4" fill="#000000" font-weight="500">Walk to the end of the corridor</text>
-<circle cx="-596.95" cy="313.97" r="8.93" fill="#000000"/>
-<text x="-596.95" y="319.16" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">5</text>
-<text x="-577.95" y="319.16" font-size="14.4" fill="#000000" font-weight="500">Stairs down one floor</text>
-<circle cx="-596.95" cy="335.57" r="8.93" fill="#000000"/>
-<text x="-596.95" y="340.76" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">6</text>
-<text x="-577.95" y="340.76" font-size="14.4" fill="#000000" font-weight="500">G29</text>
+<text x="-596.95" y="224.12" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
+<text x="-577.95" y="224.12" font-size="14.4" fill="#000000" font-weight="500">Through the door into the Anatomy Building</text>
+<circle cx="-596.95" cy="240.53" r="8.93" fill="#000000"/>
+<text x="-596.95" y="245.72" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">4</text>
+<text x="-577.95" y="245.72" font-size="14.4" fill="#000000" font-weight="500">Walk to the end of the corridor</text>
+<circle cx="-596.95" cy="262.13" r="8.93" fill="#000000"/>
+<text x="-596.95" y="267.32" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">5</text>
+<text x="-577.95" y="267.32" font-size="14.4" fill="#000000" font-weight="500">Stairs down one floor</text>
+<circle cx="-596.95" cy="283.73" r="8.93" fill="#000000"/>
+<text x="-596.95" y="288.92" font-size="13.68" fill="#ffffff" font-weight="700" text-anchor="middle">6</text>
+<text x="-577.95" y="288.92" font-size="14.4" fill="#000000" font-weight="500">G29</text>
 </g>
 </svg>

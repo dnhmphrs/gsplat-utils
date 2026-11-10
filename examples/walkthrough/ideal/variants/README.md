@@ -10,8 +10,8 @@ at 11 m (it is 19 m) without a break mark, and the sign's view is azimuth 120 at
 eye point, from behind the Start: at 25° the second and third flights of the first stair
 fall on the same patch of page and their routes cross. The door from the Medical Science
 Building into the Anatomy Building stands at the top of the first stair: a door symbol on
-the floor, the Anatomy Building's floors tinted, its own step in the key, the key grouped
-under the two building names, and the names on the foyer slabs. `contact_sheet.png`
+the floor, its own step in the key, and the Anatomy Building's floors tinted from 1.5 m
+past the door; no names on the drawing, no headings in the key. `contact_sheet.png`
 shows everything side by side, `contact_sheet_angles.png` the front angles and
 `contact_sheet_behind.png` the views from the Start side, larger; each `*.svg` is editable
 (layers per level, stairs, hidden lines, path, labels, key).
@@ -55,7 +55,7 @@ Building and everything beyond is the Anatomy Building. `contact_sheet_threshold
 | t2_door_frame | the symbol plus a standing door frame; unmistakably a door, but the frame crowds the flights behind it |
 | t3_tinted_building | **the sign**: the floors beyond the door tinted light grey, so the whole Anatomy Building reads as one thing at a glance |
 | t4_boundary_line | a heavy dashed line across the walkway; reads as a cut, not a door |
-| t5_door_symbol_no_names | t1 without the names on the slabs: the key alone carries the buildings |
+| t5_names_and_headings | the tinted version with the building names written on the foyers and the key grouped under them |
 | t6_no_door | for comparison: nothing marked |
 
 ## Geometry

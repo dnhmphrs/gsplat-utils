@@ -688,7 +688,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
         if b == 0 and zones and quad is not None and thr.get("stair_run") is not None and r is diagram["runs"][thr["stair_run"]]:
             q = np.asarray(quad, float)
             if np.ptp(q[:, 2]) <= 1e-6 and abs(float(q[0, 2]) - float(thr["p"][2])) < 1e-6:
-                c = q[:, :2].mean(axis=0); p = np.array(thr["p"][:2]); dv = np.array(thr["dir"])
+                c = q[:, :2].mean(axis=0); p = np.array(thr["p"][:2]) + np.array(thr["dir"]) * float(thr.get("zone_offset", 0.0)); dv = np.array(thr["dir"])
                 if float((c - p) @ dv) > 1e-6:
                     return 1
         return b
@@ -750,7 +750,22 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             def at_hi(_r):
                 return True
             is_steps = bool(r.get("steps"))
-            for quad, th in zip(quads, thick):
+            pairs = list(zip(quads, thick))
+            if zones and thr.get("stair_run") is not None and r is diagram["runs"][thr["stair_run"]]:
+                pz = np.array(thr["p"][:2]) + np.array(thr["dir"]) * float(thr.get("zone_offset", 0.0)); dz_ = np.array(thr["dir"])
+                k_ax = int(np.argmax(np.abs(dz_))); cut = float(pz[k_ax])
+                split = []
+                for quad, th in pairs:
+                    q = np.asarray(quad, float)
+                    if np.ptp(q[:, 2]) <= 1e-6 and abs(float(q[0, 2]) - float(thr["p"][2])) < 1e-6 and is_axis_rect(q) \
+                            and q[:, k_ax].min() + 1e-6 < cut < q[:, k_ax].max() - 1e-6:
+                        for lo_c, hi_c in ((q[:, k_ax].min(), cut), (cut, q[:, k_ax].max())):
+                            q2 = q.copy(); q2[:, k_ax] = np.where(q[:, k_ax] < (q[:, k_ax].min() + q[:, k_ax].max()) / 2, lo_c, hi_c)
+                            split.append((q2, th))
+                    else:
+                        split.append((quad, th))
+                pairs = split
+            for quad, th in pairs:
                 offs = np.array([off_at(z) for z in quad[:, 2]])
                 layer = stairs_layer_for_z(float(quad[:, 2].min()))
                 if is_steps and (abs(th - slab) < 1e-6 or th >= 0.3) and np.ptp(quad[:, 2]) <= 1e-6:
@@ -1002,7 +1017,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
             faces.add("labels", 0.0, f'<circle cx="{_fmt(pt[0])}" cy="{_fmt(pt[1] - rr)}" r="{_fmt(rr)}" fill="{S["marker_fill"]}" stroke="{S["bg"]}" stroke-width="{lw}"/>')
             faces.add("labels", 0.0, _text((pt[0], pt[1] - rr + fs * 0.36), str(n), fs * 0.95, fill=S["marker_text"],
                                            font_weight="700", text_anchor="middle"))
-            if thr and thr.get("from") and lb.get("building") is not None and lb.get("building") != key_building:
+            if thr and thr.get("from") and thr.get("key_headers", True) and lb.get("building") is not None and lb.get("building") != key_building:
                 key_building = lb.get("building")
                 key_rows.append(("H", [thr.get("from", ""), thr.get("to", "")][key_building]))
             key_rows.append((n, lb["text"]))

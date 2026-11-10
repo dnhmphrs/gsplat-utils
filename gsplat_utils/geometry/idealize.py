@@ -54,6 +54,8 @@ class IdealConfig:
     threshold_style: str = "door"     # how the door is drawn: "door" (plan symbol) | "portal" (frame) | "zones" (tinted floors) | "line"
     threshold_label: str = "Through the door into the {to}"   # key entry at the door
     building_names: bool = True       # write the building names on the foyer slabs
+    key_headers: bool = True          # group the key under the building names
+    zone_offset: float = 0.0          # with the zones style: the tint starts this far beyond the door (m)
     solid_stairs: list = field(default_factory=list)  # per stair: how many flights (from the bottom) are a solid mass down to the lowest floor
     continue_steps: list = field(default_factory=list)  # per stair: treads of the next flight drawn beyond the exit (a hint it carries on)
     path_morse: str | None = None     # lay this text in Morse along the route instead of plain dashes
@@ -837,6 +839,7 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                 threshold = {"p": [float(p_door[0]), float(p_door[1]), float(z)], "dir": [float(dv[0]), float(dv[1])],
                              "width": float(cfg.corridor_width), "from": name_from, "to": name_to,
                              "style": cfg.threshold_style, "run_from": len(runs), "label_from": len(labels),
+                             "key_headers": bool(cfg.key_headers), "zone_offset": float(cfg.zone_offset),
                              "stair_run": next((k for k, r in enumerate(runs) if r["kind"] == "stairs"), None)}
                 if cfg.threshold_label:
                     door_pt = p_door + dv * 0.6

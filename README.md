@@ -246,7 +246,8 @@ sign was made with
 gsu idealize --theme mono --title "Route to G29" --end-label G29 \
     --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4 \
     --iso-azimuth 120 --iso-elevation 35 --corridor-max 11 --break-gap 0 \
-    --threshold "Medical Science Building|Anatomy Building" --threshold-style zones
+    --threshold "Medical Science Building|Anatomy Building" --threshold-style zones \
+    --no-building-names --no-key-headers --zone-offset 1.5
 ```
 
 `--threshold "From|To"` marks the door between two buildings at the top of the first
@@ -255,7 +256,8 @@ a key entry (`--threshold-label`, default "Through the door into the {to}"), the
 grouped under the two building names, and the names written on the foyer slabs
 (`--no-building-names` drops them). `--threshold-style` picks the drawing: `door` (the
 plan symbol alone), `portal` (a standing door frame as well), `zones` (the floors beyond
-the door tinted, the theme's `zone` colour) or `line` (a heavy dashed boundary).
+the door tinted, the theme's `zone` colour, starting `--zone-offset` metres past the door)
+or `line` (a heavy dashed boundary); `--no-key-headers` leaves the key ungrouped.
 
 The key has the steps in route order: Start, the first stair, the door (with
 `--threshold`), `--corridor-label` at the middle of the corridor ("Walk to the end of the
