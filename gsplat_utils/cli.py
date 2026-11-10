@@ -126,7 +126,9 @@ def cmd_idealize(a: argparse.Namespace) -> None:
                       shaft_lines=[x.strip() for x in a.shaft_lines.split(",") if x.strip()], shaft_ext=a.shaft_ext,
                       corridor_max=a.corridor_max, break_gap=a.break_gap, corridor_label=a.corridor_label,
                       solid_stairs=[x.strip() for x in a.solid_stairs.split(",") if x.strip()],
-                      continue_steps=[int(x) for x in a.continue_steps.split(",") if x.strip()])
+                      continue_steps=[int(x) for x in a.continue_steps.split(",") if x.strip()],
+                      threshold=a.threshold, threshold_style=a.threshold_style, threshold_label=a.threshold_label,
+                      building_names=a.building_names)
     run_idealize(Workspace(a.work), cfg, diagram_path=a.diagram, out_dir=a.out)
 
 
@@ -419,6 +421,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--corridor-max", type=float, default=None, help="draw a longer corridor at this length with a break mark in the middle, m")
     p.add_argument("--break-gap", type=float, default=0.6, help="gap in slab and route at the break mark, m; 0 = shorten the corridor without a mark")
     p.add_argument("--corridor-label", default="Walk to the end of the corridor", help="key entry at the middle of the main corridor (\"\" = none)")
+    p.add_argument("--threshold", default=None, help="\"From building|To building\": a door where the corridor leaves the first stair; the key is grouped by building")
+    p.add_argument("--threshold-style", choices=["door", "portal", "zones", "line"], default="door",
+                   help="how the door is drawn: plan door symbol, standing frame, tinted floors beyond it, or a boundary line")
+    p.add_argument("--threshold-label", default="Through the door into the {to}", help="key entry at the door ({to}/{frm} are the building names; \"\" = none)")
+    p.add_argument("--no-building-names", dest="building_names", action="store_false", help="do not write the building names on the foyer slabs")
     p.add_argument("--solid-stairs", default="", help="per stair: how many flights from the bottom are a solid mass down to the stair's lowest floor, e.g. 2,0")
     p.add_argument("--continue-steps", default="", help="per stair: treads of the next flight drawn beyond the exit, a hint the stair carries on, e.g. 0,3")
     p.add_argument("--hidden-lines", choices=["stairs", "all", "none"], default="stairs",

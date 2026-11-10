@@ -59,6 +59,13 @@ VARIANTS: list[tuple[str, dict, dict]] = [
     ("g15_all_flights_solid", {"foyer": "under", "solid_stairs": [3, 0]}, {}),
     ("g11_no_hidden_lines", {"hidden_lines": "none"}, {}),
     ("g12_hidden_lines_all", {"hidden_lines": "all"}, {}),
+    # ways of showing the door between the two buildings
+    ("t1_door_symbol", {"threshold_style": "door"}, {}),
+    ("t2_door_frame", {"threshold_style": "portal"}, {}),
+    ("t3_tinted_building", {"threshold_style": "zones"}, {}),
+    ("t4_boundary_line", {"threshold_style": "line"}, {}),
+    ("t5_door_symbol_no_names", {"threshold_style": "door", "building_names": False}, {}),
+    ("t6_no_door", {"threshold": None}, {}),
 ]
 
 
@@ -80,7 +87,8 @@ def main() -> None:
     # second stair, a full turn of four flights down, straight off into the antechamber
     base = IdealConfig(theme=a.theme, title=a.title, end_label=a.end_label, all_themes=False,
                        stair_sense=["ccw", "ccw"], stair_flights=[3, 4], exit_after=[0, 4],
-                       iso_azimuth=120, iso_elevation=35, corridor_max=11.0, break_gap=0.0)
+                       iso_azimuth=120, iso_elevation=35, corridor_max=11.0, break_gap=0.0,
+                       threshold="Medical Science Building|Anatomy Building", threshold_style="zones")
     made = []
     for name, cfg_over, view_over in VARIANTS:
         if a.only and name not in a.only:
@@ -126,6 +134,7 @@ def main() -> None:
         sheet_of(made, "contact_sheet.png")
         sheet_of([s for s in made if s.stem.startswith("a")], "contact_sheet_angles.png", cols=2, cw=900, ch=720)
         sheet_of([s for s in made if s.stem.startswith("b")], "contact_sheet_behind.png", cols=2, cw=900, ch=720)
+        sheet_of([s for s in made if s.stem.startswith("t")], "contact_sheet_threshold.png", cols=2, cw=900, ch=760)
 
 
 if __name__ == "__main__":

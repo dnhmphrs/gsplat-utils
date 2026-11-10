@@ -50,6 +50,10 @@ class IdealConfig:
     corridor_max: float | None = None # draw a longer corridor at this length with a break mark in the middle
     break_gap: float = 0.6            # gap in the slab and the route at the break (m); 0 = shorten without a mark
     corridor_label: str = "Walk to the end of the corridor"   # key entry at the middle of the main corridor ("" = none)
+    threshold: str | None = None      # "From building|To building": a door where the first corridor leaves the first stair
+    threshold_style: str = "door"     # how the door is drawn: "door" (plan symbol) | "portal" (frame) | "zones" (tinted floors) | "line"
+    threshold_label: str = "Through the door into the {to}"   # key entry at the door
+    building_names: bool = True       # write the building names on the foyer slabs
     solid_stairs: list = field(default_factory=list)  # per stair: how many flights (from the bottom) are a solid mass down to the lowest floor
     continue_steps: list = field(default_factory=list)  # per stair: treads of the next flight drawn beyond the exit (a hint it carries on)
     path_morse: str | None = None     # lay this text in Morse along the route instead of plain dashes
@@ -599,6 +603,7 @@ def _stair_block(e: Element, entry: np.ndarray | None, exit_: np.ndarray | None,
                 walkways.append(np.array([np.r_[a2e + nn * w / 2, zz], np.r_[b2e + nn * w / 2, zz],
                                           np.r_[b2e - nn * w / 2, zz], np.r_[a2e - nn * w / 2, zz]]))
     e._z_exit = z_exit
+    e._exit_xy = corner_xy[last_corner].copy()
     e._landing_thick = landing_thick + [cfg.slab] * len(walkways)
     return flights, landings + walkways, atrium, (route, route_gallery), thick
 
@@ -717,6 +722,8 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
     entry_rise = cfg.entry_steps * cfg.step_rise if cfg.entry_steps > 0 else 0.0
     exit_level_z: float | None = None  # floor height of the hall after a stair left part-way
     extra_levels: list[dict] = []
+    threshold: dict | None = None
+    hall_name_pts: list[list[float]] = []
     corridor_idx = [k for k, e in enumerate(els) if e.kind == "corridor"]
     for i, e in enumerate(els):
         prev_ = els[i - 1] if i > 0 else None
@@ -734,6 +741,11 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
                 z = exit_level_z
                 exit_level_z = None
             quad = _rect(e.centre, e.size, z)
+            name_pt = e.centre.copy()
+            if e.term is not None:
+                k_long = int(np.argmax(e.size)); ac = 1 - k_long
+                name_pt[ac] = e.centre[ac] + (1 if e.term[ac] < e.centre[ac] else -1) * e.size[ac] * 0.22
+            hall_name_pts.append([float(name_pt[0]), float(name_pt[1]), float(z)])
             runs.append({"id": rid, "kind": "flat", "hall": True, "level": e.level, "level_from": -1, "level_to": -1,
                          "pieces": [{"p0": [*(e.centre - [e.size[0] / 2, 0]), z + cam_h], "p1": [*(e.centre + [e.size[0] / 2, 0]), z + cam_h],
                                      "left": e.size[1] / 2, "right": e.size[1] / 2, "axis": "x", "length": float(e.size[0]),
@@ -813,6 +825,23 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
             z = floor[e.level] + z_bias
             dv = e.b - e.a; L = float(np.linalg.norm(dv)); dv = dv / max(L, 1e-9); n = np.array([-dv[1], dv[0]])
             hw = cfg.corridor_width / 2
+            if cfg.threshold and corridor_idx and i == corridor_idx[0] and threshold is None:
+                names = [s.strip() for s in cfg.threshold.split("|")]
+                name_from, name_to = (names + ["", ""])[:2]
+                # the door stands at the edge of the landing at the top of the stair you came up,
+                # across the walkway that becomes the corridor
+                if prev_ is not None and prev_.kind == "stairs" and getattr(prev_, "_exit_xy", None) is not None:
+                    p_door = np.asarray(prev_._exit_xy, float) + dv * (cfg.flight_width / 2)
+                else:
+                    p_door = np.asarray(e.a, float)
+                threshold = {"p": [float(p_door[0]), float(p_door[1]), float(z)], "dir": [float(dv[0]), float(dv[1])],
+                             "width": float(cfg.corridor_width), "from": name_from, "to": name_to,
+                             "style": cfg.threshold_style, "run_from": len(runs), "label_from": len(labels),
+                             "stair_run": next((k for k, r in enumerate(runs) if r["kind"] == "stairs"), None)}
+                if cfg.threshold_label:
+                    door_pt = p_door + dv * 0.6
+                    labels.append({"text": cfg.threshold_label.format(to=name_to, frm=name_from), "xyz": [float(door_pt[0]), float(door_pt[1]), float(z)],
+                                   "level": e.level, "floor_z": float(z), "kind": "door"})
             # short flights inside this corridor (fraction along it, number of steps; negative = down)
             steps_here = [(f_, ns) for f_, ns in cfg.mid_steps] if corridor_idx and i == corridor_idx[0] else []
             cuts = [(0.0, 0)] + sorted(steps_here) + [(1.0, 0)]
@@ -931,8 +960,21 @@ def idealize(d: dict, cfg: IdealConfig) -> dict:
         k = int(np.argmin(np.linalg.norm(pts[:, :2] - p, axis=1)))
         labels.append({"text": lb["text"], "xyz": [float(pts[k, 0]), float(pts[k, 1]), float(pts[k, 2] - cam_h)],
                        "level": int(path_lv[k]) if path_lv[k] >= 0 else 0, "floor_z": float(pts[k, 2] - cam_h)})
+    if threshold is not None:
+        for k, r in enumerate(runs):
+            r["building"] = 0 if k < threshold["run_from"] else 1
+        # Start/End were inserted at the front: tag by role, everything else by creation order
+        n_front = 2
+        for k, lb in enumerate(labels):
+            lb["building"] = 0 if lb.get("role") == "start" else 1 if lb.get("role") == "end" else (0 if k - n_front < threshold["label_from"] else 1)
+        # the foyer slabs carry the building names, written on the half of the slab away from the route
+        if cfg.building_names and hall_name_pts:
+            threshold["names"] = [{"text": threshold["from"], "xyz": hall_name_pts[0]}]
+            if len(hall_name_pts) > 1:
+                threshold["names"].append({"text": threshold["to"], "xyz": hall_name_pts[-1]})
     out = {
         "frame": "ideal", "units": "m", "camera_height_m": cam_h, "plan_rotation_deg": 0.0,
+        "threshold": threshold,
         "note": f"idealised schematic on a {cfg.grid} m grid from the measured diagram",
         "levels": [{"id": lid, "name": lv["name"], "floor_z": floor[lid], "ceiling_z": floor[lid] + 3.0, "camera_z": floor[lid] + cam_h}
                    for lid, lv in levels.items()] + extra_levels,

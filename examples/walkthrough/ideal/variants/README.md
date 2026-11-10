@@ -8,7 +8,10 @@ full turn of four flights down, then straight off the last step into a foyer the
 size as the first, each 5 m long and meeting the first or last step. The bridge is drawn
 at 11 m (it is 19 m) without a break mark, and the sign's view is azimuth 120 at a 35°
 eye point, from behind the Start: at 25° the second and third flights of the first stair
-fall on the same patch of page and their routes cross. `contact_sheet.png`
+fall on the same patch of page and their routes cross. The door from the Medical Science
+Building into the Anatomy Building stands at the top of the first stair: a door symbol on
+the floor, the Anatomy Building's floors tinted, its own step in the key, the key grouped
+under the two building names, and the names on the foyer slabs. `contact_sheet.png`
 shows everything side by side, `contact_sheet_angles.png` the front angles and
 `contact_sheet_behind.png` the views from the Start side, larger; each `*.svg` is editable
 (layers per level, stairs, hidden lines, path, labels, key).
@@ -42,6 +45,18 @@ route running away up the page to G29. `contact_sheet_behind.png` shows them tog
 | b6_az75_over_the_bridge | from the right of the bridge; the second stair hides behind the first |
 | b7_az120_el25 / b8_az120_el30 | the sign's view from lower down; at 25° the back flights of the first stair overlap |
 | b9_az105_el25 | b2 from lower down |
+
+## The door between the buildings
+The point people get wrong: at the top of the first stair you leave the Medical Science
+Building and everything beyond is the Anatomy Building. `contact_sheet_threshold.png`.
+| file | note |
+|---|---|
+| t1_door_symbol | the architect's plan symbol only: threshold line, leaf, dotted swing; quiet, easy to miss at sign size |
+| t2_door_frame | the symbol plus a standing door frame; unmistakably a door, but the frame crowds the flights behind it |
+| t3_tinted_building | **the sign**: the floors beyond the door tinted light grey, so the whole Anatomy Building reads as one thing at a glance |
+| t4_boundary_line | a heavy dashed line across the walkway; reads as a cut, not a door |
+| t5_door_symbol_no_names | t1 without the names on the slabs: the key alone carries the buildings |
+| t6_no_door | for comparison: nothing marked |
 
 ## Geometry
 | file | note |

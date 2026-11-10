@@ -67,6 +67,9 @@
 <line x1="0" y1="80" x2="560" y2="80" stroke="#f0eee9" stroke-width="1"/>
 <line x1="0" y1="40" x2="560" y2="40" stroke="#f0eee9" stroke-width="1"/>
 <line x1="0" y1="0" x2="560" y2="0" stroke="#f0eee9" stroke-width="1"/>
+<line x1="260" y1="110" x2="310" y2="110" stroke="#2b2b2b" stroke-width="2"/>
+<line x1="260" y1="110" x2="260" y2="156" stroke="#2b2b2b" stroke-width="1.5"/>
+<polyline points="260,156 265.54,155.66 271.01,154.66 276.31,153.01 281.38,150.73 286.13,147.86 290.5,144.43 294.43,140.5 297.86,136.13 300.73,131.38 303.01,126.31 304.66,121.01 305.66,115.54 306,110" fill="none" stroke="#2b2b2b" stroke-width="0.9" stroke-dasharray="3 3"/>
 <polyline points="120,275 260,275 260,275 285,275 285,275 285,275" fill="none" stroke="#d9482b" stroke-width="2" stroke-dasharray="6 4" stroke-linejoin="round"/>
 <polyline points="285,85 285,275 285,275 285,275 285,300 285,740 285,765 285,765 285,765" fill="none" stroke="#d9482b" stroke-width="2" stroke-dasharray="6 4" stroke-linejoin="round"/>
 <polyline points="285,765 285,765 285,765 260,765 120,765 120,765" fill="none" stroke="#d9482b" stroke-width="2" stroke-dasharray="6 4" stroke-linejoin="round"/>
@@ -75,6 +78,8 @@
 <circle cx="120" cy="765" r="4.9" fill="#d9482b"/>
 <text x="128.4" y="769.9" font-size="14" fill="#111111" font-weight="600">G29</text>
 <text x="314.2" y="279.9" font-size="11.2" fill="#777777" font-weight="500">Stairs up one floor</text>
+<circle cx="285" cy="134" r="4.9" fill="#d9482b"/>
+<text x="293.4" y="138.9" font-size="14" fill="#111111" font-weight="600">Through the door into the Anatomy Building</text>
 <text x="289.2" y="524.9" font-size="11.2" fill="#777777" font-weight="500">Walk to the end of the corridor</text>
 <text x="289.2" y="794.9" font-size="11.2" fill="#777777" font-weight="500">Stairs down one floor</text>
 <line x1="20" y1="1016" x2="220" y2="1016" stroke="#333333" stroke-width="3"/>

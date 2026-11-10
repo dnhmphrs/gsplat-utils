@@ -3,6 +3,42 @@
   "units": "m",
   "camera_height_m": 1.5,
   "plan_rotation_deg": 0.0,
+  "threshold": {
+    "p": [
+      9.625,
+      6.25,
+      4.25
+    ],
+    "dir": [
+      0.0,
+      -1.0
+    ],
+    "width": 1.25,
+    "from": "Medical Science Building",
+    "to": "Anatomy Building",
+    "style": "zones",
+    "run_from": 2,
+    "label_from": 1,
+    "stair_run": 1,
+    "names": [
+      {
+        "text": "Medical Science Building",
+        "xyz": [
+          7.6,
+          4.5,
+          0.0
+        ]
+      },
+      {
+        "text": "Anatomy Building",
+        "xyz": [
+          7.6,
+          -12.5,
+          0.0
+        ]
+      }
+    ]
+  },
   "note": "idealised schematic on a 0.5 m grid from the measured diagram",
   "levels": [
     {
@@ -138,7 +174,8 @@
         ]
       ],
       "atrium": null,
-      "walls": []
+      "walls": [],
+      "building": 0
     },
     {
       "id": 1,
@@ -1945,7 +1982,8 @@
         "void_lines": false
       },
       "walls": [],
-      "shaft_lines": []
+      "shaft_lines": [],
+      "building": 0
     },
     {
       "id": 2,
@@ -2042,7 +2080,8 @@
         ]
       ],
       "atrium": null,
-      "walls": []
+      "walls": [],
+      "building": 1
     },
     {
       "id": 3,
@@ -3849,7 +3888,8 @@
         "void_lines": false
       },
       "walls": [],
-      "shaft_lines": []
+      "shaft_lines": [],
+      "building": 1
     },
     {
       "id": 4,
@@ -3968,7 +4008,8 @@
         ]
       ],
       "atrium": null,
-      "walls": []
+      "walls": [],
+      "building": 1
     }
   ],
   "path": {
@@ -4222,7 +4263,8 @@
       ],
       "level": 0,
       "floor_z": 0.0,
-      "role": "start"
+      "role": "start",
+      "building": 0
     },
     {
       "text": "G29",
@@ -4233,7 +4275,8 @@
       ],
       "level": 0,
       "floor_z": 0.0,
-      "role": "end"
+      "role": "end",
+      "building": 1
     },
     {
       "text": "Stairs up one floor",
@@ -4244,7 +4287,20 @@
       ],
       "level": 0,
       "floor_z": 0.0,
-      "kind": "stairs"
+      "kind": "stairs",
+      "building": 0
+    },
+    {
+      "text": "Through the door into the Anatomy Building",
+      "xyz": [
+        9.625,
+        5.65,
+        4.25
+      ],
+      "level": 1,
+      "floor_z": 4.25,
+      "kind": "door",
+      "building": 1
     },
     {
       "text": "Walk to the end of the corridor",
@@ -4255,7 +4311,8 @@
       ],
       "level": 1,
       "floor_z": 4.25,
-      "kind": "corridor"
+      "kind": "corridor",
+      "building": 1
     },
     {
       "text": "Stairs down one floor",
@@ -4266,7 +4323,8 @@
       ],
       "level": 1,
       "floor_z": 4.25,
-      "kind": "stairs"
+      "kind": "stairs",
+      "building": 1
     }
   ],
   "config": {
@@ -4302,6 +4360,10 @@
     "corridor_max": 11.0,
     "break_gap": 0.0,
     "corridor_label": "Walk to the end of the corridor",
+    "threshold": "Medical Science Building|Anatomy Building",
+    "threshold_style": "zones",
+    "threshold_label": "Through the door into the {to}",
+    "building_names": true,
     "solid_stairs": [],
     "continue_steps": [],
     "path_morse": null,

@@ -245,11 +245,21 @@ sign was made with
 ```bash
 gsu idealize --theme mono --title "Route to G29" --end-label G29 \
     --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4 \
-    --iso-azimuth 120 --iso-elevation 35 --corridor-max 11 --break-gap 0
+    --iso-azimuth 120 --iso-elevation 35 --corridor-max 11 --break-gap 0 \
+    --threshold "Medical Science Building|Anatomy Building" --threshold-style zones
 ```
 
-The key has five steps: Start, the first stair, `--corridor-label` at the middle of the
-corridor ("Walk to the end of the corridor"; "" drops it), the second stair, the end.
+`--threshold "From|To"` marks the door between two buildings at the top of the first
+stair, where the walkway becomes the corridor: a door symbol on the floor (leaf and swing),
+a key entry (`--threshold-label`, default "Through the door into the {to}"), the key
+grouped under the two building names, and the names written on the foyer slabs
+(`--no-building-names` drops them). `--threshold-style` picks the drawing: `door` (the
+plan symbol alone), `portal` (a standing door frame as well), `zones` (the floors beyond
+the door tinted, the theme's `zone` colour) or `line` (a heavy dashed boundary).
+
+The key has the steps in route order: Start, the first stair, the door (with
+`--threshold`), `--corridor-label` at the middle of the corridor ("Walk to the end of the
+corridor"; "" drops it), the second stair, the end.
 `--foyer under` runs the start foyer under the whole stair block (as the real atrium does)
 and `--solid-stairs 2,0` builds the first two flights of that stair as a solid stepped mass
 from each tread down to the foyer floor, the flights above floating as usual;
