@@ -298,7 +298,7 @@ def _emit_morse_route(faces, view, ppm, S, lw, runs_, text, unit_px, cam_h, lvl_
                    float(max(P[j][0], P[k + 1][0])), float(max(P[j][1], P[k + 1][1])), float(max(P[j][2], P[k + 1][2])))
             _, d = view.project(np.vstack([P[j], P[k + 1]]))
             faces.add(ly, float(d.mean()) + 0.04,
-                      _line(pa, pb, stroke=S["path"], stroke_width=lw * 1.8, stroke_linecap="butt"), boxes=[box])
+                      _line(pa, pb, stroke=S["path"], stroke_width=lw * 1.8, stroke_linecap="butt"), boxes=[box], kind="route")
             j = k + 1
     return True
 
@@ -509,6 +509,10 @@ class _Faces:
     def _relation(self, A: _Item, B: _Item) -> int:
         if A.sbox is None or B.sbox is None or not _sb_overlap(A.sbox, B.sbox):
             return 0
+        # the route is an overlay on its own stair: never hidden by the treads and landings
+        # it runs across (a higher storey, drawn in a later layer, still covers it)
+        if {A.kind, B.kind} == {"route", "stairs"}:
+            return -1 if A.kind == "stairs" else 1
         votes = set()
         for ba, sa in A.members:
             if not _sb_overlap(sa, B.sbox):
@@ -911,7 +915,7 @@ def write_axo_svg(path, diagram: dict, view: AxoView, cutaway_height: float = 1.
                        float(max(sa[0], sb[0])), float(max(sa[1], sb[1])), float(max(sa[2], sb[2])))
                 faces.add(ly, float(d.mean()) + 0.04,
                           _line(q2[0] * ppm, q2[1] * ppm, stroke=S["path"], stroke_width=lw * 1.8, stroke_linecap="butt"),
-                          boxes=[box])
+                          boxes=[box], kind="route")
     # labels
     fs = max(11.0, 0.4 * ppm)
     key_rows = []

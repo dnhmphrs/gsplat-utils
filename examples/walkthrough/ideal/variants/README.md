@@ -5,17 +5,17 @@ hidden edges of the stairs as light dashed lines) and the locked geometry: both 
 three flights up (south side, back, north side) with the walkway along the west side of
 the well running straight on as the bridge onto the first flight of the second stair, a
 full turn of four flights down, then straight off the last step into a foyer the same
-size as the first. The start foyer runs under the first stair, whose first two flights are
-a solid stepped mass down to it; three treads below the second stair's last landing hint
-that it carries on. The bridge is drawn at 9 m (it is 19 m) without a break mark, and the
-sign's view is azimuth 120, from behind the Start. `contact_sheet.png`
+size as the first, each 5 m long and meeting the first or last step. The bridge is drawn
+at 9 m (it is 19 m) without a break mark, and the sign's view is azimuth 120 at a 35°
+eye point, from behind the Start: at 25° the second and third flights of the first stair
+fall on the same patch of page and their routes cross. `contact_sheet.png`
 shows everything side by side, `contact_sheet_angles.png` the front angles and
 `contact_sheet_behind.png` the views from the Start side, larger; each `*.svg` is editable
 (layers per level, stairs, hidden lines, path, labels, key).
 
 Made with `python scripts/make_variants.py --work work --out examples/walkthrough/ideal/variants`.
 
-## Angles (eye point 25° unless noted)
+## Angles (eye point 35° unless noted)
 | file | note |
 |---|---|
 | a1_az-45_isometric | classic 45° isometric; the corridor runs at 30° and both stairs show the same two flights foreshortened |
@@ -29,7 +29,7 @@ Made with `python scripts/make_variants.py --work work --out examples/walkthroug
 | a9_az-30_wide | wide landscape; the bridge nearly horizontal, both stairs seen side-on |
 | a11_el20_lower | lower still; most "model on a table", the fewest visible treads |
 
-## From the Start side (eye point 25° unless noted)
+## From the Start side (eye point 35° unless noted)
 Seen the way a reader standing at the sign would see the building: Start nearest, the
 route running away up the page to G29. `contact_sheet_behind.png` shows them together.
 | file | note |
@@ -40,8 +40,8 @@ route running away up the page to G29. `contact_sheet_behind.png` shows them tog
 | b4_az135 | the mirror of the classic isometric from behind; most even, slightly flatter stairs |
 | b5_az150 | wide and low; the bridge nearly horizontal across the page |
 | b6_az75_over_the_bridge | from the right of the bridge; the second stair hides behind the first |
-| b7_az120_el30 / b8_az120_el35 | the b3 view from higher up; more tread, more plan-like |
-| b9_az105_el30 | b2 from higher up |
+| b7_az120_el25 / b8_az120_el30 | the sign's view from lower down; at 25° the back flights of the first stair overlap |
+| b9_az105_el25 | b2 from lower down |
 
 ## Geometry
 | file | note |
@@ -57,7 +57,7 @@ route running away up the page to G29. `contact_sheet_behind.png` shows them tog
 | g9_foyer_beside | halls as separate rooms beside the stairs: the earlier, weaker reading |
 | g10_landing_L | the earlier reading of the bridge: it meets the near corner of each stair and the top landing runs the full side as an L |
 | g13_landing_inline | flights reordered so the last one of the first stair points straight down the bridge (back, north side, west side) |
-| g14_floating_stairs | the earlier version: foyer flush against the first stair, all treads floating, no hint below the second stair (`route_to_g29_floating.*` one folder up) |
+| g14_solid_two_flights | the start foyer under the first stair, its first two flights a solid mass down to the floor, three treads hinting the second stair carries on |
 | g15_all_flights_solid | all three flights of the first stair solid to the floor; the back flight becomes a wall that hides the well |
 | g11_no_hidden_lines | hidden edges left out: the two foreshortened flights of the second stair fall back to a fan of plates |
 | g12_hidden_lines_all | hidden edges of the slabs too (under the bridge, under the stairs): more information, more clutter |

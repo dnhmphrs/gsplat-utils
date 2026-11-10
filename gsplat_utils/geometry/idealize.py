@@ -44,7 +44,7 @@ class IdealConfig:
                                       # the corridor's direction; "L": the corridor meets the near corner and the
                                       # landing runs the full side
     hidden_lines: str = "stairs"      # hidden edges as light dashed lines: "stairs" | "all" | "none"
-    foyer_ext: float | None = 7.0     # how far a base-slab foyer extends beyond its stair block (None = from the measured hall)
+    foyer_ext: float | None = 5.0     # how far a base-slab foyer extends beyond its stair block (None = from the measured hall)
     shaft_lines: list = field(default_factory=list)  # per stair: "up" | "down" | "both" | "none": dashed verticals at the block corners
     shaft_ext: float = 2.0            # how far those lines run beyond the stair's top / bottom (m)
     corridor_max: float | None = None # draw a longer corridor at this length with a break mark in the middle

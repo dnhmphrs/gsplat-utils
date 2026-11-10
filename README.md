@@ -245,8 +245,7 @@ sign was made with
 ```bash
 gsu idealize --theme mono --title "Route to G29" --end-label G29 \
     --stair-sense ccw,ccw --stair-flights 3,4 --exit-after 0,4 \
-    --iso-azimuth 120 --corridor-max 9 --break-gap 0 \
-    --foyer under --solid-stairs 2,0 --continue-steps 0,3
+    --iso-azimuth 120 --iso-elevation 35 --corridor-max 9 --break-gap 0
 ```
 
 The key has five steps: Start, the first stair, `--corridor-label` at the middle of the
@@ -269,11 +268,12 @@ are merged into one outline; the surfaces in a level are ordered for drawing by
 separating planes (exact for the axis-aligned boxes used here), so touching steps,
 landings and route never paint over each other; the route is drawn as individual dashes
 fitted to each straight run (a run starts and ends with a full dash, so corners stay
-solid) and disappears where it passes under a higher surface. Edges of the stairs that
+solid) and disappears where it passes under a higher surface, but is never hidden by the
+treads and landings of the stair it is climbing. Edges of the stairs that
 lie behind or beneath another surface are drawn as light dashed lines, the architect's
 hidden-line convention (`--hidden-lines stairs|all|none`); visibility comes from casting
 a ray from points along each edge towards the viewer through every box. A start/end foyer
-drawn as the slab under its stair extends `--foyer-ext` metres beyond the block (7 m;
+drawn as the slab under its stair extends `--foyer-ext` metres beyond the block (5 m;
 0 = as far as the measured hall).
 
 `--morse "TEXT"` lays the text in Morse along the route instead of the plain dashes
